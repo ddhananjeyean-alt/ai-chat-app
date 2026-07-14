@@ -3,9 +3,11 @@ import { useAuth } from "../context/AuthContext";
 
 export default function Home() {
   const { currentUser } = useAuth();
+  console.log("[Home] Render check - currentUser:", currentUser);
 
   // If the user is not logged in, go to the main page
   if (!currentUser) {
+    console.log("[Home] No currentUser, redirecting to /");
     return <Navigate to="/" replace />;
   }
 
@@ -39,4 +41,4 @@ export default function Home() {
       </div>
     </div>
   );
-}
+}

@@ -56,27 +56,28 @@ function scrollbarStyles(mode) {
 
 function buildComponents(mode) {
   const isDark = mode === "dark";
-  const border = isDark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.08)";
-  const hover = isDark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.05)";
+  const border = isDark ? "rgba(255,255,255,.08)" : "rgba(0, 0, 0, 0.12)";
+  const hover = isDark ? "rgba(255,255,255,.08)" : "rgba(0, 0, 0, 0.04)";
   const paper = isDark ? "#2F2F2F" : "#FFFFFF";
-  const background = isDark ? "#212121" : "#FFFFFF";
-  const textPrimary = isDark ? "#FFFFFF" : "#202123";
-  const textSecondary = isDark ? "#A1A1AA" : "#6B7280";
-  const tooltipBg = isDark ? "#3A3A3A" : "#111111";
+  const background = isDark ? "#212121" : "#F8FAFC";
+  const textPrimary = isDark ? "#FFFFFF" : "#111827";
+  const textSecondary = isDark ? "#A1A1AA" : "#374151";
+  const tooltipBg = isDark ? "#3A3A3A" : "#111827";
 
   return {
     MuiCssBaseline: {
       styleOverrides: {
-        "html, body": {
+        "html, body, #root": {
           backgroundColor: background,
+          backgroundImage: isDark ? "none" : "radial-gradient(circle at 50% 50%, #FCFDFF 0%, #EEF4FC 100%)",
           color: textPrimary,
           fontFamily,
           WebkitFontSmoothing: "antialiased",
           MozOsxFontSmoothing: "grayscale",
           textRendering: "optimizeLegibility",
         },
-        "#root": {
-          backgroundColor: background,
+        "html, body, #root, header, .MuiPaper-root, .MuiBox-root, .MuiTypography-root, .MuiIconButton-root, .MuiButton-root, .MuiOutlinedInput-root": {
+          transition: "background-color 650ms cubic-bezier(0.4, 0, 0.2, 1), background 650ms cubic-bezier(0.4, 0, 0.2, 1), color 650ms cubic-bezier(0.4, 0, 0.2, 1), border-color 650ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 650ms cubic-bezier(0.4, 0, 0.2, 1), backdrop-filter 650ms cubic-bezier(0.4, 0, 0.2, 1)",
         },
         "::selection": {
           background: isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.15)",
@@ -112,19 +113,50 @@ function buildComponents(mode) {
       defaultProps: { disableElevation: true },
       styleOverrides: {
         root: {
-          borderRadius: 14,
+          borderRadius: 22,
           textTransform: "none",
-          fontWeight: 500,
+          fontWeight: 600,
           fontFamily,
-          transition: "background 200ms ease, transform 200ms ease, box-shadow 200ms ease",
+          transition: "all 300ms cubic-bezier(.22,1,.36,1)",
           boxShadow: "none",
           "&:hover": {
             boxShadow: "none",
+            transform: "translateY(-2px)",
+          },
+          "&:active": {
+            transform: "translateY(1px)",
           },
         },
         containedPrimary: {
+          background: isDark
+            ? "#FFFFFF"
+            : "linear-gradient(135deg, #0EA5FF 0%, #2563EB 100%)",
+          color: isDark ? "#111111" : "#FFFFFF",
+          boxShadow: isDark
+            ? "none"
+            : "0 4px 14px rgba(14, 165, 255, 0.35)",
           "&:hover": {
-            filter: "brightness(1.08)",
+            background: isDark
+              ? "#FFFFFF"
+              : "linear-gradient(135deg, #1eaeff, #3b82f6 100%)",
+            boxShadow: isDark
+              ? "none"
+              : "0 6px 20px rgba(14, 165, 255, 0.45)",
+          },
+        },
+        outlinedPrimary: {
+          backgroundColor: isDark ? "transparent" : "#FFFFFF",
+          color: isDark ? "#ffffff" : "#2563EB",
+          borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(220, 228, 240, 0.9)",
+          "&:hover": {
+            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#EEF6FF",
+            borderColor: isDark ? "rgba(255,255,255,0.25)" : "#2563EB",
+          },
+        },
+        textPrimary: {
+          color: isDark ? "#ffffff" : "#2563EB",
+          "&:hover": {
+            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#EEF6FF",
           },
         },
       },
@@ -135,9 +167,16 @@ function buildComponents(mode) {
           width: 36,
           height: 36,
           borderRadius: 10,
-          transition: "background 200ms ease, transform 200ms ease",
+          transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
           "&:hover": {
             backgroundColor: hover,
+            transform: "scale(1.05)",
+            boxShadow: isDark 
+              ? "0 4px 12px rgba(0,0,0,0.3)" 
+              : "0 4px 10px rgba(0,0,0,0.04)",
+          },
+          "&:active": {
+            transform: "scale(0.95)",
           },
         },
       },
@@ -149,27 +188,27 @@ function buildComponents(mode) {
     },
     MuiOutlinedInput: {
       styleOverrides: {
-        root: {
+        root: ({ theme }) => ({
           borderRadius: 16,
-          backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)",
-          transition: "background 200ms ease, box-shadow 200ms ease, border-color 200ms ease",
+          backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.015)",
+          transition: "all 200ms ease",
           "& fieldset": {
             borderColor: border,
             transition: "border-color 200ms ease",
           },
           "&:hover fieldset": {
-            borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.18)",
+            borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.12)",
           },
           "&.Mui-focused": {
             boxShadow: isDark
               ? "0 0 0 3px rgba(255,255,255,0.12)"
-              : "0 0 0 3px rgba(0,0,0,0.08)",
+              : `0 0 0 3px ${theme.palette.primary.main}1a`,
           },
           "&.Mui-focused fieldset": {
-            borderColor: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.25)",
+            borderColor: isDark ? "rgba(255,255,255,0.3)" : theme.palette.primary.main,
             borderWidth: 1,
           },
-        },
+        }),
       },
     },
     MuiPaper: {
@@ -177,8 +216,9 @@ function buildComponents(mode) {
         root: {
           backgroundImage: "none",
           borderRadius: 18,
-          boxShadow: "none",
+          boxShadow: isDark ? "none" : "0 12px 30px rgba(31,41,55,.08)",
           backgroundColor: paper,
+          border: isDark ? "none" : `1px solid ${border}`,
         },
       },
     },
@@ -188,6 +228,9 @@ function buildComponents(mode) {
           borderRadius: 22,
           backgroundColor: paper,
           border: `1px solid ${border}`,
+          boxShadow: isDark
+            ? "0 15px 40px rgba(0,0,0,0.5)"
+            : "0 12px 30px rgba(31,41,55,.08)",
         },
       },
     },
@@ -199,7 +242,7 @@ function buildComponents(mode) {
           border: `1px solid ${border}`,
           boxShadow: isDark
             ? "0 8px 30px rgba(0,0,0,0.5)"
-            : "0 8px 30px rgba(0,0,0,0.12)",
+            : "0 12px 30px rgba(31,41,55,.08)",
         },
       },
     },
@@ -288,28 +331,30 @@ export const lightTheme = createTheme({
   palette: {
     mode: "light",
     background: {
-      default: "#FFFFFF",
+      default: "#F8FAFD",
       paper: "#FFFFFF",
     },
     primary: {
-      main: "#202123",
+      main: "#2563EB",
       contrastText: "#FFFFFF",
     },
     secondary: {
-      main: "#6B7280",
+      main: "#667085",
     },
     text: {
-      primary: "#202123",
-      secondary: "#6B7280",
+      primary: "#1F2937",
+      secondary: "#667085",
+      muted: "#98A2B3",
+      links: "#0EA5FF",
     },
-    divider: "rgba(0,0,0,.08)",
+    divider: "rgba(0, 0, 0, 0.05)",
     action: {
-      hover: "rgba(0,0,0,.05)",
+      hover: "rgba(14, 165, 255, 0.04)",
     },
     chatgpt: {
-      sidebar: "#F7F7F8",
-      border: "rgba(0,0,0,.08)",
-      hover: "rgba(0,0,0,.05)",
+      sidebar: "rgba(255, 255, 255, 0.65)",
+      border: "rgba(255, 255, 255, 0.7)",
+      hover: "rgba(0, 0, 0, 0.03)",
     },
   },
   typography,

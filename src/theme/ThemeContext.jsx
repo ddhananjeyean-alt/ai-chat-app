@@ -75,6 +75,12 @@ export function ThemeProvider({ children }) {
     localStorage.setItem("fontSize", fontSize);
   }, [fontSize]);
 
+  // Sync data-theme attribute for CSS targeting
+  useEffect(() => {
+    const mode = themeName === "light" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", mode);
+  }, [themeName]);
+
   return (
     <ThemeContext.Provider
       value={{

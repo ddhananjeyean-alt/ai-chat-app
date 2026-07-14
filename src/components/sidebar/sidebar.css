@@ -1,0 +1,340 @@
+/* ===========================================
+   AI Rotating Sidebar
+=========================================== */
+
+:root {
+  --sidebar-bg: #0f0f10;
+  --sidebar-panel: rgba(25, 25, 27, 0.92);
+  --text: #ececec;
+  --subtext: rgba(255, 255, 255, 0.58);
+  --border: rgba(255, 255, 255, 0.08);
+  --hover: rgba(255, 255, 255, 0.06);
+  --selected: rgba(255, 255, 255, 0.08);
+  --active: #74dcff;
+  --ring1: #0a192f;
+  --ring2: #172a45;
+  --glass: blur(20px);
+}
+
+[data-theme="light"] {
+  --sidebar-bg: rgba(240, 245, 251, 0.50);
+  --sidebar-panel: rgba(255, 255, 255, 0.70);
+  --text: #111827;
+  --subtext: #374151;
+  --border: rgba(0, 0, 0, 0.12);
+  --hover: rgba(0, 0, 0, 0.04);
+  --selected: rgba(0, 0, 0, 0.06);
+  --active: #2563eb;
+  --ring1: #bfdbfe;
+  --ring2: #dbeafe;
+  --glass: blur(16px);
+}
+
+/* ===========================================
+   Root
+=========================================== */
+
+.ai-sidebar {
+  position: relative;
+
+  width: 340px;
+  height: 100dvh;
+
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: row;
+
+  background: var(--sidebar-bg);
+
+  border-right: 1px solid var(--border);
+
+  user-select: none;
+}
+
+/* ===========================================
+   Wheel
+=========================================== */
+
+.ai-sidebar-wheel {
+  position: relative;
+
+  width: 170px;
+  min-width: 170px;
+  height: 100%;
+
+  overflow: visible;
+}
+
+.ai-sidebar-wheel * {
+  box-sizing: border-box;
+}
+
+/* ===========================================
+   Right Panel
+=========================================== */
+
+.ai-sidebar-panel {
+  flex: 1;
+
+  height: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  background: var(--sidebar-panel);
+
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+
+  border-left: 1px solid var(--border);
+
+  overflow: hidden;
+}
+
+/* ===========================================
+   Header
+=========================================== */
+
+.ai-sidebar-header {
+  padding: 24px;
+
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+
+.ai-sidebar-title {
+  color: var(--text);
+
+  font-size: 22px;
+
+  font-weight: 700;
+}
+
+.ai-sidebar-subtitle {
+  margin-top: 4px;
+
+  color: var(--subtext);
+
+  font-size: 13px;
+}
+
+/* ===========================================
+   Content
+=========================================== */
+
+.ai-sidebar-content {
+  flex: 1;
+
+  overflow-y: auto;
+
+  padding: 20px;
+}
+
+.ai-sidebar-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-sidebar-content::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+
+  background: rgba(255,255,255,.15);
+}
+
+.ai-sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===========================================
+   Chat Item
+=========================================== */
+
+.ai-chat-item {
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 14px 16px;
+
+  margin-bottom: 8px;
+
+  border-radius: 16px;
+
+  cursor: pointer;
+
+  transition: .18s ease;
+}
+
+.ai-chat-item:hover {
+  background: var(--hover);
+}
+
+.ai-chat-item.active {
+  background: rgba(255,255,255,.08);
+}
+
+.ai-chat-title {
+  flex: 1;
+
+  overflow: hidden;
+
+  white-space: nowrap;
+
+  text-overflow: ellipsis;
+
+  color: var(--text);
+
+  font-size: 14px;
+}
+
+/* ===========================================
+   Search
+=========================================== */
+
+.ai-search {
+  display: flex;
+
+  align-items: center;
+
+  height: 48px;
+
+  margin-bottom: 22px;
+
+  padding: 0 16px;
+
+  border-radius: 16px;
+
+  background: rgba(255,255,255,.05);
+
+  border: 1px solid rgba(255,255,255,.08);
+
+  backdrop-filter: blur(16px);
+}
+
+.ai-search input {
+  flex: 1;
+
+  background: transparent;
+
+  border: none;
+
+  outline: none;
+
+  color: var(--text);
+
+  font-size: 14px;
+}
+
+.ai-search input::placeholder {
+  color: var(--subtext);
+}
+
+/* ===========================================
+   Empty
+=========================================== */
+
+.ai-empty {
+  margin-top: 80px;
+
+  text-align: center;
+
+  color: var(--subtext);
+
+  font-size: 14px;
+}
+
+/* ===========================================
+   Glass
+=========================================== */
+
+.glass {
+  background: rgba(255,255,255,.05);
+
+  border: 1px solid rgba(255,255,255,.08);
+
+  backdrop-filter: blur(18px);
+
+  -webkit-backdrop-filter: blur(18px);
+}
+
+/* ===========================================
+   Utilities
+=========================================== */
+
+.fade-in {
+  animation: fadeIn .25s ease;
+}
+
+@keyframes fadeIn {
+
+  from {
+
+    opacity: 0;
+
+    transform: translateX(-10px);
+
+  }
+
+  to {
+
+    opacity: 1;
+
+    transform: translateX(0);
+
+  }
+
+}
+
+.no-select {
+  user-select: none;
+}
+
+/* ===========================================
+   Mobile
+=========================================== */
+
+@media (max-width: 900px) {
+
+  .ai-sidebar {
+
+    width: 100%;
+  }
+
+  .ai-sidebar-wheel {
+
+    width: 150px;
+
+    min-width: 150px;
+  }
+
+}
+
+/* Custom vacuum delete animations */
+@keyframes byteVacuumShake {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  15% { transform: translate(-2px, 1px) scale(0.95) rotate(-1deg); }
+  30% { transform: translate(1px, -2px) scale(0.9) rotate(1.5deg); }
+  45% { transform: translate(-1px, 2px) scale(0.85) rotate(-1deg); }
+  60% { transform: translate(2px, 1px) scale(0.8) rotate(2deg); }
+  75% { transform: translate(-2px, -1px) scale(0.75) rotate(-1.5deg); }
+  90% { transform: translate(1px, 2px) scale(0.7) rotate(1deg); }
+  100% { transform: translate(0, 0) scale(0.6) rotate(0deg); }
+}
+
+.byte-vacuum-shaking {
+  animation: byteVacuumShake 0.45s ease-in-out infinite alternate;
+}
+
+@keyframes bytePullingJitter {
+  0% { transform: translate(0, 0) rotate(8deg); }
+  25% { transform: translate(1px, -1px) rotate(8.5deg); }
+  50% { transform: translate(-1px, 1px) rotate(7.5deg); }
+  75% { transform: translate(1px, 1px) rotate(8.2deg); }
+  100% { transform: translate(-1px, -1px) rotate(7.8deg); }
+}
+
+.byte-pulling-jitter {
+  animation: bytePullingJitter 0.12s linear infinite;
+  filter: drop-shadow(0 0 15px rgba(121, 248, 255, 0.4)) !important;
+}

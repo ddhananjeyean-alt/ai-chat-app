@@ -1,0 +1,7 @@
+- `[x]` Define completion event names in `DeleteEvents.js` and `RestoreEvents.js`
+- `[x]` Upgrade the rocket boost sequence in `src/companion/byte/ByteWelcomeGuide.jsx` with the 500ms look-at phase, 300ms elastic stretch tension on grab, backward falling balance loss, dust puff particles, and polished/juggled toy play actions
+- `[x]` Update `byte.css` with non-overshooting face ease, spring transforms, active neon outline/glow for clones, speech bubble glassmorphism, and idle float hover.
+- `[x]` Update `ByteRobot.jsx` with unified random idle behaviors (head wiggles, winks, curious looking, tiny bounce, waves).
+- `[/]` Update `ByteContext.jsx` to prevent early welcome triggers on login page, change default greeting phrasing, and add welcome dismiss timeout.
+- `[x]` Update `ByteWelcomeGuide.jsx` to initialize welcome on mount, add typing text bubble rendering, apply float bobbing to bubbles, and adjust smoke drift.
+- `[/]` Verify with build tests.

@@ -1,0 +1,448 @@
+.byte {
+  pointer-events: auto;
+  user-select: none;
+
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.byte-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+
+/* ==========================
+   Thinking
+========================== */
+
+.byte.thinking {
+  animation: byteFloat 3.8s ease-in-out infinite;
+}
+
+@keyframes byteFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* ==========================
+   Happy
+========================== */
+
+.byte.happy {
+  animation: byteHappy 0.8s ease;
+}
+
+@keyframes byteHappy {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+
+  25% {
+    transform: translateY(-10px) scale(1.03);
+  }
+
+  50% {
+    transform: translateY(0px) scale(1);
+  }
+
+  75% {
+    transform: translateY(-5px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* ==========================
+   Wave
+========================== */
+
+.byte.wave {
+  animation: byteWave 0.8s ease;
+}
+
+@keyframes byteWave {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  20% {
+    transform: rotate(-6deg);
+  }
+
+  40% {
+    transform: rotate(6deg);
+  }
+
+  60% {
+    transform: rotate(-5deg);
+  }
+
+  80% {
+    transform: rotate(5deg);
+  }
+
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+/* ==========================
+   Floating
+========================== */
+
+.byte.float {
+  animation: byteFloatMove 2.2s ease-in-out infinite;
+}
+
+.byte.float .byte-svg {
+  animation: byteHover 1.8s ease-in-out infinite;
+}
+
+@keyframes byteHover {
+
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes byteFloatMove {
+
+  0% {
+    transform: rotate(-2deg);
+  }
+
+  50% {
+    transform: rotate(2deg);
+  }
+
+  100% {
+    transform: rotate(-2deg);
+  }
+}
+
+/* byteGlow keyframes removed */
+
+/* ==========================
+   Walking Arms
+========================== */
+
+#byte-left-arm,
+#byte-right-arm {
+  transform-box: fill-box;
+  transform-origin: top center;
+}
+
+.byte.walk #byte-left-arm {
+  animation: byteLeftArmWalk 0.45s ease-in-out infinite;
+}
+
+.byte.walk #byte-right-arm {
+  animation: byteRightArmWalk 0.45s ease-in-out infinite;
+}
+
+@keyframes byteLeftArmWalk {
+  0% {
+    transform: rotate(-12deg);
+  }
+
+  50% {
+    transform: rotate(12deg);
+  }
+
+  100% {
+    transform: rotate(-12deg);
+  }
+}
+
+@keyframes byteRightArmWalk {
+  0% {
+    transform: rotate(12deg);
+  }
+
+  50% {
+    transform: rotate(-12deg);
+  }
+
+  100% {
+    transform: rotate(12deg);
+  }
+}
+
+
+/* ==========================
+   Hover Glow
+========================== */
+
+.byte:hover {
+  cursor: grab;
+  filter: drop-shadow(0 0 16px rgba(70, 235, 255, 0.45));
+}
+
+.byte:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+/* ==========================
+   Smooth transitions
+========================== */
+
+.byte,
+.byte * {
+  transition:
+    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 250ms ease,
+    filter 250ms ease;
+}
+
+.byte-svg path,
+.byte-svg line,
+.byte-svg circle,
+.byte-svg ellipse {
+  transition:
+    d 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    cx 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    cy 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    r 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    rx 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    ry 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    stroke 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    fill 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==========================================================================
+   BYTE AI PROCESSING STATES
+   ========================================================================== */
+
+/* Rotating eyes for THINKING state */
+.byte-spin-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: byteEyeSpin 2s linear infinite;
+}
+
+@keyframes byteEyeSpin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Pulse effects for progress rings and generating states */
+.byte-pulse-eye {
+  /* pulse animation removed */
+}
+
+/* Upload Arrow bouncing indicator */
+.byte-arrow-bounce {
+  animation: byteArrowBounce 1s ease-in-out infinite;
+}
+
+@keyframes byteArrowBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Moving scan line for IMAGE ANALYSIS */
+.byte-scan-line {
+  animation: byteScanLine 1.6s ease-in-out infinite;
+}
+
+@keyframes byteScanLine {
+  0%, 100% {
+    transform: translateY(-15px);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(15px);
+    opacity: 1;
+  }
+}
+
+/* Orbiter particles for WEB SEARCH */
+.byte-searching-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: byteSearchingOrbit 2.5s linear infinite;
+}
+
+@keyframes byteSearchingOrbit {
+  100% {
+    transform: rotate(-360deg);
+  }
+}
+
+/* Sparkles scaling/fading for IMAGE GENERATION */
+/* sparkle styles removed */
+
+/* Audio Wave scale bars for VOICE LISTENING */
+.byte-wave-bar-1 {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: byteWaveBar 0.7s ease-in-out infinite alternate;
+}
+
+.byte-wave-bar-2 {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: byteWaveBar 0.7s ease-in-out infinite alternate 0.22s;
+}
+
+@keyframes byteWaveBar {
+  0% {
+    transform: scaleY(0.3);
+  }
+  100% {
+    transform: scaleY(1.3);
+  }
+}
+
+/* Microphone glow pulsing */
+.byte-mic-pulse {
+  /* mic pulse animation removed */
+}
+
+/* Head shake for ERROR feedback */
+.byte.error_shake {
+  animation: byteShake 0.15s ease-in-out 3;
+}
+
+@keyframes byteShake {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-5px) rotate(-1.5deg);
+  }
+  75% {
+    transform: translateX(5px) rotate(1.5deg);
+  }
+}
+
+/* Special purple gradient glow removed */
+
+/* ==========================
+   Rocket Booster Flames
+========================== */
+@keyframes flameFlicker {
+  0% {
+    transform: scaleY(0.92) scaleX(0.95);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scaleY(1.15) scaleX(1.05);
+    opacity: 1;
+    filter: drop-shadow(0 0 10px #79f8ff) url(#glow);
+  }
+  100% {
+    transform: scaleY(0.92) scaleX(0.95);
+    opacity: 0.9;
+  }
+}
+
+.rocket-flame-left {
+  animation: flameFlicker 0.08s infinite alternate;
+  transform-origin: 50px 260px;
+}
+
+.rocket-flame-right {
+  animation: flameFlicker 0.08s infinite alternate-reverse;
+  transform-origin: 210px 260px;
+}
+
+/* ==========================
+   Pixar Upgrade Visual Styles
+   ========================= */
+
+/* Frantic Arm Flailing (Landing) */
+.byte-arm-flail-left {
+  transform-box: fill-box;
+  transform-origin: 60px 196px;
+  animation: armFlailLeft 0.12s linear infinite alternate !important;
+}
+
+.byte-arm-flail-right {
+  transform-box: fill-box;
+  transform-origin: 200px 196px;
+  animation: armFlailRight 0.12s linear infinite alternate !important;
+}
+
+@keyframes armFlailLeft {
+  0% { transform: rotate(-25deg) translateY(-8px); }
+  100% { transform: rotate(20deg) translateY(6px); }
+}
+
+@keyframes armFlailRight {
+  0% { transform: rotate(20deg) translateY(6px); }
+  100% { transform: rotate(-25deg) translateY(-8px); }
+}
+
+/* Rocket Pack Unfold Animation */
+.booster-pack {
+  transform-origin: 130px 220px;
+  animation: boosterUnfold 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes boosterUnfold {
+  from {
+    transform: scale(0.2) translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Premium Cyan Icon Glow */
+.icon-glow-active {
+  transition: filter 0.3s ease, outline 0.3s ease, box-shadow 0.3s ease !important;
+}
+
+.icon-glow-fade {
+  transition: filter 1.5s ease-out, outline 1.5s ease-out, box-shadow 1.5s ease-out !important;
+}
+
+/* Heat Distortion Effect */
+.heat-distortion {
+  backdrop-filter: blur(2.5px) contrast(1.15) saturate(1.1);
+  background-color: rgba(255, 255, 255, 0.015);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 99998;
+}
+
+/* Flashlight Beam spot and cone overlay details */
+.flashlight-beam-cone {
+  position: fixed;
+  pointer-events: none;
+  z-index: 99999;
+  mix-blend-mode: screen;
+  background: radial-gradient(circle, rgba(121, 248, 255, 0.15) 0%, rgba(121, 248, 255, 0.05) 50%, rgba(121, 248, 255, 0) 70%);
+}
+
+.byte.idle {
+  animation: byteFloat 3.8s ease-in-out infinite;
+}
+

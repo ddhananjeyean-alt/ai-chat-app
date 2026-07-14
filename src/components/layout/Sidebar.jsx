@@ -1,6 +1,4 @@
 import React, { useState, useRef, useEffect } from "react";
-import { signOut } from "firebase/auth";
-import { auth } from "../../firebase/firebase";
 import {
   Box,
   Stack,
@@ -28,6 +26,7 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined";
 import ChatOutlinedIcon from "@mui/icons-material/ChatOutlined";
 import CloseIcon from "@mui/icons-material/Close";
+import { RenameEvents } from "../../companion/byte/RenameEvents";
 
 export default function Sidebar({
   darkMode,
@@ -84,6 +83,16 @@ export default function Sidebar({
     setRenamingId(chat.id);
     setRenameValue(chat.title || "");
     handleRowMenuClose();
+    
+    // Give a short tick for the input box to render in the DOM, then capture its coordinates
+    setTimeout(() => {
+      const container = document.querySelector(".active-rename-container");
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const coords = { x: rect.left + rect.width - 50, y: rect.top + rect.height / 2 };
+        RenameEvents.publish(RenameEvents.TRIGGER, { chatId: chat.id, coords });
+      }
+    }, 60);
   };
 
   const commitRename = (chatId) => {
@@ -92,11 +101,13 @@ export default function Sidebar({
     }
     setRenamingId(null);
     setRenameValue("");
+    RenameEvents.publish(RenameEvents.CONFIRM, { chatId });
   };
 
   const cancelRename = () => {
     setRenamingId(null);
     setRenameValue("");
+    RenameEvents.publish(RenameEvents.CANCEL);
   };
 
   const handleDelete = (chatId) => {
@@ -109,12 +120,10 @@ export default function Sidebar({
     handleRowMenuClose();
   };
 
-  const handleLogoutClick = async () => {
+  const handleLogoutClick = () => {
     handleUserMenuClose();
     if (onLogout) {
       onLogout();
-    } else {
-      await signOut(auth);
     }
   };
 
@@ -140,11 +149,16 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
         height: "100vh",
         display: "flex",
         flexDirection: "column",
-        background: "#171717",
-        color: "#ECECEC",
+        background: darkMode ? "#171717" : "rgba(255, 255, 255, 0.65)",
+        color: darkMode ? "#ECECEC" : "#1F2937",
+        backdropFilter: darkMode ? "none" : "blur(24px)",
+        WebkitBackdropFilter: darkMode ? "none" : "blur(24px)",
+        boxShadow: darkMode ? "none" : "0 8px 32px rgba(31, 41, 55, 0.05)",
         fontFamily:
           '"Söhne", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
-        borderRight: "1px solid rgba(255,255,255,0.05)",
+        borderRight: darkMode
+          ? "1px solid rgba(255,255,255,0.05)"
+          : "1px solid rgba(255, 255, 255, 0.7)",
       }}
     >
       <Box sx={{ px: 1, pt: 1.5, pb: 1 }}>
@@ -157,12 +171,12 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "#ffffff",
+              background: darkMode ? "#ffffff" : "#1F2937",
             }}
           >
-            <ChatOutlinedIcon sx={{ fontSize: 16, color: "#171717" }} />
+            <ChatOutlinedIcon sx={{ fontSize: 16, color: darkMode ? "#171717" : "#ffffff" }} />
           </Box>
-          <Typography sx={{ fontSize: 15, fontWeight: 600, color: "#ECECEC" }}>
+          <Typography sx={{ fontSize: 15, fontWeight: 600, color: darkMode ? "#ECECEC" : "#1F2937" }}>
             Ai Chat Assistent
           </Typography>
         </Stack>
@@ -182,7 +196,7 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
               borderRadius: "14px",
               cursor: "pointer",
               transition: "background 0.15s ease",
-              "&:hover": { background: "#2A2A2A" },
+              "&:hover": { background: darkMode ? "#2A2A2A" : "rgba(0,0,0,0.03)" },
             }}
           >
             <Box
@@ -190,7 +204,7 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
                 width: 28,
                 height: 28,
                 borderRadius: "999px",
-                border: "1px solid rgba(255,255,255,0.2)",
+                border: darkMode ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(0,0,0,0.12)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -198,7 +212,7 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
             >
               <AddIcon sx={{ fontSize: 16 }} />
             </Box>
-            <Typography sx={{ fontSize: 14, fontWeight: 500 }}>New chat</Typography>
+            <Typography sx={{ fontSize: 14, fontWeight: 500, color: darkMode ? "#ECECEC" : "#1F2937" }}>New chat</Typography>
           </Box>
         </motion.div>
 
@@ -213,20 +227,28 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
             borderRadius: "14px",
             background: "transparent",
             transition: "background 0.15s ease",
-            "&:hover": { background: "#2A2A2A" },
+            "&:hover": { background: darkMode ? "#2A2A2A" : "rgba(0,0,0,0.02)" },
           }}
         >
-          <SearchIcon sx={{ fontSize: 18, color: "rgba(255,255,255,0.6)" }} />
+          <SearchIcon sx={{ fontSize: 18, color: darkMode ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.45)" }} />
           <InputBase
             placeholder="Search chats"
             value={searchQuery}
             onChange={(e) => setSearchQuery && setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (filteredChats.length > 0) {
+                  onSelectChat?.(filteredChats[0].id);
+                }
+              }
+            }}
             sx={{
               fontSize: 14,
-              color: "#ECECEC",
+              color: darkMode ? "#ECECEC" : "#1F2937",
               flex: 1,
               "& input::placeholder": {
-                color: "rgba(255,255,255,0.45)",
+                color: darkMode ? "rgba(255,255,255,0.45)" : "#8A94A6",
                 opacity: 1,
               },
             }}
@@ -234,7 +256,7 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
         </Box>
       </Box>
 
-      <Divider sx={{ borderColor: "rgba(255,255,255,0.06)", mx: 1 }} />
+      <Divider sx={{ borderColor: darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", mx: 1 }} />
 
       <Box
         className="sidebar-scroll"
@@ -251,7 +273,7 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
             borderRadius: 10,
           },
           "&:hover::-webkit-scrollbar-thumb": {
-            background: "rgba(255,255,255,0.18)",
+            background: darkMode ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.12)",
           },
           scrollbarWidth: "thin",
           scrollbarColor: "transparent transparent",
@@ -261,7 +283,7 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
           <Typography
             sx={{
               fontSize: 13,
-              color: "rgba(255,255,255,0.4)",
+              color: darkMode ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)",
               px: 1,
               py: 2,
               textAlign: "center",
@@ -292,15 +314,16 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
                     position: "relative",
                     display: "flex",
                     alignItems: "center",
-                    height: 40,
+                    minHeight: 40,
+                    py: 1,
                     px: 1,
                     mb: 0.25,
                     borderRadius: "14px",
                     cursor: "pointer",
-                    background: isSelected ? "#2F2F2F" : "transparent",
+                    background: isSelected ? (darkMode ? "#2F2F2F" : "#EEF6FF") : "transparent",
                     transition: "background 0.15s ease",
                     "&:hover": {
-                      background: isSelected ? "#2F2F2F" : "#2A2A2A",
+                      background: isSelected ? (darkMode ? "#2F2F2F" : "#EEF6FF") : (darkMode ? "#2A2A2A" : "rgba(0,0,0,0.03)"),
                     },
                     "&:hover .row-menu-btn": {
                       opacity: 1,
@@ -314,6 +337,7 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
                       spacing={0.5}
                       sx={{ width: "100%" }}
                       onClick={(e) => e.stopPropagation()}
+                      className="active-rename-container"
                     >
                       <TextField
                         inputRef={renameInputRef}
@@ -330,27 +354,34 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
                           fontSize: 14,
                           "& .MuiInputBase-input": {
                             fontSize: 14,
-                            color: "#ECECEC",
+                            color: darkMode ? "#ECECEC" : "#1F2937",
                             py: 0,
                           },
                         }}
                       />
                       <IconButton size="small" onClick={() => commitRename(chat.id)}>
-                        <CheckIcon sx={{ fontSize: 16, color: "#ECECEC" }} />
+                        <CheckIcon sx={{ fontSize: 16, color: darkMode ? "#ECECEC" : "#1F2937" }} />
                       </IconButton>
                       <IconButton size="small" onClick={cancelRename}>
-                        <CloseIcon sx={{ fontSize: 16, color: "#ECECEC" }} />
+                        <CloseIcon sx={{ fontSize: 16, color: darkMode ? "#ECECEC" : "#1F2937" }} />
                       </IconButton>
                     </Stack>
                   ) : (
                     <>
                       <Typography
-                        noWrap
                         sx={{
                           fontSize: 14,
-                          color: "#ECECEC",
+                          color: darkMode ? "#ECECEC" : "#1F2937",
                           flex: 1,
                           pr: 3.5,
+                          whiteSpace: "normal",
+                          overflow: "hidden",
+                          display: "-webkit-box",
+                          WebkitBoxOrient: "vertical",
+                          WebkitLineClamp: 3,
+                          wordBreak: "normal",
+                          overflowWrap: "break-word",
+                          lineHeight: 1.35,
                         }}
                       >
                         {chat.title || "New chat"}
@@ -364,7 +395,7 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
                           right: 4,
                           opacity: isSelected ? 1 : 0,
                           transition: "opacity 0.15s ease",
-                          color: "rgba(255,255,255,0.7)",
+                          color: darkMode ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.45)",
                         }}
                       >
                         <MoreHorizIcon sx={{ fontSize: 18 }} />
@@ -385,11 +416,12 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
         PaperProps={{
   sx: {
     background: darkMode ? "#2A2A2A" : "#FFFFFF",
-    color: darkMode ? "#ECECEC" : "#111827",
+    color: darkMode ? "#ECECEC" : "#1F2937",
     borderRadius: "14px",
     border: darkMode
       ? "1px solid rgba(255,255,255,0.08)"
       : "1px solid rgba(0,0,0,0.08)",
+    boxShadow: darkMode ? "none" : "0 8px 24px rgba(31, 41, 55, 0.06)",
     minWidth: 220,
   },
 }}
@@ -399,25 +431,25 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
             const chat = chats.find((c) => c.id === activeChatId);
             if (chat) startRename(chat);
           }}
-          sx={{ fontSize: 14, gap: 1, "&:hover": { background: "#333333" } }}
+          sx={{ fontSize: 14, gap: 1, "&:hover": { background: darkMode ? "#333333" : "rgba(0,0,0,0.04)" } }}
         >
           <ListItemIcon sx={{ minWidth: 28 }}>
-            <EditOutlinedIcon sx={{ fontSize: 18, color: "#ECECEC" }} />
+            <EditOutlinedIcon sx={{ fontSize: 18, color: darkMode ? "#ECECEC" : "#475467" }} />
           </ListItemIcon>
           <ListItemText primary="Rename" />
         </MenuItem>
         <MenuItem
           onClick={() => handleArchive(activeChatId)}
-          sx={{ fontSize: 14, gap: 1, "&:hover": { background: "#333333" } }}
+          sx={{ fontSize: 14, gap: 1, "&:hover": { background: darkMode ? "#333333" : "rgba(0,0,0,0.04)" } }}
         >
           <ListItemIcon sx={{ minWidth: 28 }}>
-            <Inventory2OutlinedIcon sx={{ fontSize: 18, color: "#ECECEC" }} />
+            <Inventory2OutlinedIcon sx={{ fontSize: 18, color: darkMode ? "#ECECEC" : "#475467" }} />
           </ListItemIcon>
           <ListItemText primary="Archive" />
         </MenuItem>
         <MenuItem
           onClick={() => handleDelete(activeChatId)}
-          sx={{ fontSize: 14, gap: 1, color: "#F87171", "&:hover": { background: "#333333" } }}
+          sx={{ fontSize: 14, gap: 1, color: "#F87171", "&:hover": { background: darkMode ? "#333333" : "rgba(0,0,0,0.04)" } }}
         >
           <ListItemIcon sx={{ minWidth: 28 }}>
             <DeleteOutlineRoundedIcon sx={{ fontSize: 18, color: "#F87171" }} />
@@ -426,7 +458,7 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
         </MenuItem>
       </Menu>
 
-      <Divider sx={{ borderColor: "rgba(255,255,255,0.06)", mx: 1 }} />
+      <Divider sx={{ borderColor: darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", mx: 1 }} />
 
       <Box sx={{ px: 1, py: 1 }}>
         <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
@@ -443,7 +475,7 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
               borderRadius: "14px",
               cursor: "pointer",
               transition: "background 0.15s ease",
-              "&:hover": { background: "#2A2A2A" },
+              "&:hover": { background: darkMode ? "#2A2A2A" : "rgba(0,0,0,0.03)" },
             }}
           >
            <Avatar
@@ -452,10 +484,10 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
   {!currentUser?.photoURL && avatarLetter}
 </Avatar>
             <Box sx={{ overflow: "hidden", flex: 1 }}>
-              <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 500, color: "#ECECEC" }}>
+              <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 500, color: darkMode ? "#ECECEC" : "#1F2937" }}>
                 {displayName}
               </Typography>
-              <Typography noWrap sx={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+              <Typography noWrap sx={{ fontSize: 12, color: darkMode ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>
                 {displayEmail}
               </Typography>
             </Box>
@@ -471,10 +503,11 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
         anchorOrigin={{ horizontal: "left", vertical: "top" }}
         PaperProps={{
           sx: {
-            background: "#2A2A2A",
-            color: "#ECECEC",
+            background: darkMode ? "#2A2A2A" : "#FFFFFF",
+            color: darkMode ? "#ECECEC" : "#1F2937",
             borderRadius: "14px",
-            border: "1px solid rgba(255,255,255,0.08)",
+            border: darkMode ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
+            boxShadow: darkMode ? "none" : "0 8px 24px rgba(31, 41, 55, 0.06)",
             minWidth: 220,
           },
         }}
@@ -483,23 +516,23 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
           <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 600 }}>
             {displayName}
           </Typography>
-          <Typography noWrap sx={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+          <Typography noWrap sx={{ fontSize: 12, color: darkMode ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>
             {displayEmail}
           </Typography>
         </Box>
-        <Divider sx={{ borderColor: "rgba(255,255,255,0.08)" }} />
+        <Divider sx={{ borderColor: darkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)" }} />
         <MenuItem
           onClick={() => {
             handleUserMenuClose();
             onOpenProfile && onOpenProfile();
           }}
-          sx={{ fontSize: 14, gap: 1, "&:hover": { background: "#333333" } }}
+          sx={{ fontSize: 14, gap: 1, "&:hover": { background: darkMode ? "#333333" : "rgba(0,0,0,0.04)" } }}
         >
           <ListItemIcon sx={{ minWidth: 28 }}>
             <AccountCircleOutlinedIcon
   sx={{
     fontSize: 18,
-    color: darkMode ? "#ECECEC" : "#6B7280",
+    color: darkMode ? "#ECECEC" : "#475467",
   }}
 />
           </ListItemIcon>
@@ -507,7 +540,7 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
   primary="Profile"
   primaryTypographyProps={{
     sx: {
-      color: darkMode ? "#ECECEC" : "#111827",
+      color: darkMode ? "#ECECEC" : "#1F2937",
     },
   }}
 />
@@ -517,22 +550,22 @@ const avatarLetter = displayName.charAt(0).toUpperCase();
             handleUserMenuClose();
             onOpenSettings && onOpenSettings();
           }}
-          sx={{ fontSize: 14, gap: 1, "&:hover": { background: "#333333" } }}
+          sx={{ fontSize: 14, gap: 1, "&:hover": { background: darkMode ? "#333333" : "rgba(0,0,0,0.04)" } }}
         >
           <ListItemIcon sx={{ minWidth: 28 }}>
             <SettingsOutlinedIcon
   sx={{
     fontSize: 18,
-    color: darkMode ? "#ECECEC" : "#6B7280",
+    color: darkMode ? "#ECECEC" : "#475467",
   }}
 />
           </ListItemIcon>
           <ListItemText primary="Settings" />
         </MenuItem>
-        <Divider sx={{ borderColor: "rgba(255,255,255,0.08)" }} />
+        <Divider sx={{ borderColor: darkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)" }} />
         <MenuItem
           onClick={handleLogoutClick}
-          sx={{ fontSize: 14, gap: 1, color: "#F87171", "&:hover": { background: "#333333" } }}
+          sx={{ fontSize: 14, gap: 1, color: "#F87171", "&:hover": { background: darkMode ? "#333333" : "rgba(0,0,0,0.04)" } }}
         >
           <ListItemIcon sx={{ minWidth: 28 }}>
             <LogoutIcon sx={{ fontSize: 18, color: "#F87171" }} />

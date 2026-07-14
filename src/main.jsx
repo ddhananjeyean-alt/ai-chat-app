@@ -23,24 +23,18 @@ import {
 import { ThemeProvider, useThemeContext } from "./theme/ThemeContext";
 
 // Authentication
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthProvider } from "./context/AuthContext";
+import { ByteProvider } from "./context/ByteContext";
+import { msalInstance } from "./auth/msalInstance";
+import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Pages
 import App from "./App";
 import Home from "./pages/Home";
-import Login from "./auth/Login";
+import Login from "./pages/Login";
 import Register from "./auth/Register";
 import SharedChat from "./pages/SharedChat";
-
-function ProtectedRoute({ children }) {
-  const { currentUser } = useAuth();
-
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-}
 
 function AppWithTheme() {
   const { currentTheme } = useThemeContext();
@@ -80,14 +74,23 @@ function AppWithTheme() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <ThemeProvider>
-          <AppWithTheme />
-        </ThemeProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>
-);
+// Initialize MSAL before rendering the application (Required by MSAL Browser v3)
+msalInstance.initialize().then(() => {
+  ReactDOM.createRoot(document.getElementById("root")).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <AuthProvider>
+            <ByteProvider>
+              <ThemeProvider>
+                <AppWithTheme />
+              </ThemeProvider>
+            </ByteProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+}).catch((error) => {
+  console.error("Failed to initialize MSAL instance:", error);
+});

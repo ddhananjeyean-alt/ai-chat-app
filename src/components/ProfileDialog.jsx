@@ -27,8 +27,8 @@ export default function ProfileDialog({
   onClose,
   currentUser,
 }) {
-const { logout, updateUsername } = useAuth();
-console.log("Profile Current User:", currentUser);
+  const { logout, updateUsername } = useAuth();
+  console.log("Profile Current User:", currentUser);
   const navigate = useNavigate();
   const theme = useTheme();
 
@@ -46,11 +46,11 @@ console.log("Profile Current User:", currentUser);
     severity: "success",
   });
 
-const displayName = currentUser?.displayName
-  ? currentUser.displayName
-  : currentUser?.email
-  ? currentUser.email.split("@")[0]
-  : "User";
+  const displayName = currentUser?.displayName
+    ? currentUser.displayName
+    : currentUser?.email
+    ? currentUser.email.split("@")[0]
+    : "User";
   console.log("Display Name:", displayName);
   const email = currentUser?.email || "No email available";
 
@@ -59,10 +59,10 @@ const displayName = currentUser?.displayName
   };
 
   const handleOpenEdit = () => {
-  console.log("handleOpenEdit called");
-  setNewUsername(displayName);
-  setEditOpen(true);
-};
+    console.log("handleOpenEdit called");
+    setNewUsername(displayName);
+    setEditOpen(true);
+  };
 
   const handleCloseEdit = () => {
     setEditOpen(false);
@@ -197,13 +197,13 @@ const displayName = currentUser?.displayName
                 </Typography>
                 <Typography variant="body1">{displayName}</Typography>
               </Box>
-             <Button
-  size="small"
-  startIcon={<EditIcon />}
-  onClick={handleOpenEdit}
->
-  Edit
-</Button>
+              <Button
+                size="small"
+                startIcon={<EditIcon />}
+                onClick={handleOpenEdit}
+              >
+                Edit
+              </Button>
             </Box>
 
             <Box
@@ -237,12 +237,13 @@ const displayName = currentUser?.displayName
         </DialogActions>
       </Dialog>
 
-<Dialog
-  open={editOpen}
-  onClose={handleCloseEdit}
-  fullWidth
-  maxWidth="xs"
->        <DialogTitle>Edit Username</DialogTitle>
+      <Dialog
+        open={editOpen}
+        onClose={handleCloseEdit}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Edit Username</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus

@@ -1,0 +1,41 @@
+/**
+ * BorderCompanions.css
+ * ---------------------------------------------------------------------------
+ * Purely structural/visual styling. NO movement, position, or rotation is
+ * ever done via CSS animations/keyframes — all of that is driven imperatively
+ * from the rAF loop in BorderCompanions.jsx via direct style.transform writes,
+ * per the requirement to use requestAnimationFrame for movement.
+ * ---------------------------------------------------------------------------
+ */
+
+.companion-layer {
+  /* The outer wrapper never intercepts pointer events, at any depth. */
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  overflow: visible;
+}
+
+.companion-sprite {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  will-change: transform;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.companion-sprite img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}

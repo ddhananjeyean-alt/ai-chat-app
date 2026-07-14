@@ -1,0 +1,18 @@
+/* ThemeRope.css */
+
+.theme-rope-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 99998; /* Just below Byte (99999) but above the rest of the UI */
+}
+
+/* Premium frosted glass pull switch handle styling */
+.theme-rope-handle {
+  filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.28));
+  backdrop-filter: blur(2px);
+  transition: filter 0.2s ease;
+}
