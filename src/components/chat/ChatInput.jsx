@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Box, IconButton, TextareaAutosize, Tooltip, useTheme, Typography, CircularProgress } from "@mui/material";
+import { Box, IconButton, TextareaAutosize, Tooltip, useTheme, Typography, CircularProgress, Button } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
 import AddIcon from "@mui/icons-material/Add";
 import MicNoneRoundedIcon from "@mui/icons-material/MicNoneRounded";
@@ -18,19 +18,37 @@ export default function ChatInput({
   darkMode = true,
   isGenerating = false,
   onStopGeneration,
+  editingMessageIndex,
+  onCancelEdit,
+  activeChatId = null,
+  selectedDocumentName,
+  selectedDocumentType,
+  selectedDocumentSize,
+  removeDocument,
+  isPreparingDocument = false,
 }) {
   const theme = useTheme();
   const isLight = theme.palette.mode === "light";
   const [isPreparing, setIsPreparing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(mediaQuery.matches);
+    const listener = (e) => setPrefersReducedMotion(e.matches);
+    mediaQuery.addEventListener("change", listener);
+    return () => mediaQuery.removeEventListener("change", listener);
+  }, []);
 
   useEffect(() => {
     if (selectedImage) {
       setIsPreparing(false);
     }
   }, [selectedImage]);
-  const { setByteState } = useByte();
+  const { setByteState, displayName } = useByte();
 
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -76,6 +94,24 @@ export default function ChatInput({
 
     recognitionRef.current = recognition;
   }, [setMessage, setByteState]);
+
+  useEffect(() => {
+    if (editingMessageIndex !== null && textareaRef.current) {
+      textareaRef.current.focus();
+      // Move cursor to the end of the text
+      const length = textareaRef.current.value.length;
+      textareaRef.current.setSelectionRange(length, length);
+    }
+  }, [editingMessageIndex]);
+
+  useEffect(() => {
+    if (!isGenerating && textareaRef.current) {
+      const t = setTimeout(() => {
+        textareaRef.current.focus();
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [activeChatId, isGenerating]);
 
   const handleChange = (e) => {
     setMessage(e.target.value);
@@ -142,8 +178,12 @@ export default function ChatInput({
     }
   };
 
-  const glassBg = isLight ? "rgba(255, 255, 255, 0.88)" : "rgba(13, 15, 23, 0.6)";
-  const glassBorder = isLight ? "1px solid rgba(220, 228, 240, 0.9)" : "1px solid rgba(255, 255, 255, 0.05)";
+  const glassBg = isLight 
+    ? "linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(245, 248, 253, 0.75) 100%)" 
+    : "linear-gradient(135deg, rgba(17, 20, 32, 0.65) 0%, rgba(10, 11, 18, 0.45) 100%)";
+  const glassBorder = isLight 
+    ? "1px solid rgba(255, 255, 255, 0.6)" 
+    : "1px solid rgba(255, 255, 255, 0.08)";
   const textColor = theme.palette.text.primary;
   const placeholderColor = isLight ? "#8A94A6" : "rgba(255,255,255,0.38)";
   const iconColor = isLight ? "#475467" : theme.palette.text.secondary;
@@ -164,22 +204,41 @@ export default function ChatInput({
         : "0 0 20px rgba(121, 248, 255, 0.6)")
     : "none";
 
-  // Focused drop shadow glow
+  // Soft elevation shadow on hover / focused glow
   const wrapperShadow = isFocused
     ? (isLight
-        ? "0 12px 28px rgba(31, 41, 55, 0.08), 0 0 0 3px rgba(14, 165, 255, 0.25)"
-        : "0 16px 40px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(121, 248, 255, 0.12)")
+        ? "0 20px 40px rgba(31, 41, 55, 0.08)"
+        : "0 20px 50px rgba(0, 0, 0, 0.65)")
+    : isHovered
+    ? (isLight
+        ? "0 16px 30px rgba(31, 41, 55, 0.06), 0 0 12px rgba(37, 99, 235, 0.03)"
+        : "0 18px 45px rgba(0, 0, 0, 0.5), 0 0 15px rgba(121, 248, 255, 0.05)")
     : (isLight
-        ? "0 6px 22px rgba(31, 41, 55, 0.04)"
-        : "0 10px 35px rgba(0, 0, 0, 0.35)");
+        ? "0 8px 24px rgba(31, 41, 55, 0.03)"
+        : "0 10px 32px rgba(0, 0, 0, 0.4)");
+
+  const wrapperY = isHovered && !prefersReducedMotion ? -2 : 0;
 
   return (
     <Box
+      component={motion.div}
+      key={editingMessageIndex !== null ? "editing" : (activeChatId ? "chat-active" : "chat-welcome")}
+      initial={prefersReducedMotion ? {} : { y: activeChatId ? 0 : 25, opacity: activeChatId ? 1 : 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={
+        prefersReducedMotion
+          ? { duration: 0 }
+          : {
+              duration: 0.65,
+              ease: [0.16, 1, 0.3, 1],
+              delay: activeChatId ? 0 : 0.15,
+            }
+      }
       sx={{
         position: "absolute",
-        left: { xs: 16, sm: 24, md: 32 },
-        right: { xs: 16, sm: 24, md: 32 },
-        bottom: 24, // Floats slightly above the bottom
+        left: { xs: 12, sm: 24, md: 32 },
+        right: { xs: 12, sm: 24, md: 32 },
+        bottom: { xs: "calc(12px + env(safe-area-inset-bottom))", md: 24 },
         display: "flex",
         justifyContent: "flex-start",
         zIndex: 100,
@@ -194,9 +253,54 @@ export default function ChatInput({
           pointerEvents: "auto",
         }}
       >
-        {/* Upload Image Preview bubble */}
+        {/* Document Action Pills */}
+        {selectedDocumentName && !isGenerating && (
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              mb: 1.5,
+              mt: 0.5,
+              flexWrap: "wrap",
+              pointerEvents: "auto",
+            }}
+          >
+            {[
+              { label: "📝 Summarize", prompt: "Summarize this document in detail, highlighting the key findings and structure." },
+              { label: "💡 Explain", prompt: "Explain the core concepts and main points of this document clearly." },
+              { label: "📊 Extract Tables", prompt: "Extract all structural data tables from this document and output them as formatted markdown tables." },
+              { label: "🌐 Translate", prompt: "Translate this document. Provide the translation in native script: " },
+              { label: "🔍 Extract Text", prompt: "Extract and print the full raw text contents from this document." }
+            ].map((pill, idx) => (
+              <Button
+                key={idx}
+                onClick={() => setMessage(pill.prompt)}
+                size="small"
+                sx={{
+                  textTransform: "none",
+                  borderRadius: "12px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  fontFamily: "Inter, sans-serif",
+                  background: isLight ? "rgba(37, 99, 235, 0.08)" : "rgba(121, 248, 255, 0.08)",
+                  color: isLight ? theme.palette.primary.main : "#79f8ff",
+                  border: isLight ? "1px solid rgba(37, 99, 235, 0.15)" : "1px solid rgba(121, 248, 255, 0.15)",
+                  backdropFilter: "blur(10px)",
+                  WebkitBackdropFilter: "blur(10px)",
+                  "&:hover": {
+                    background: isLight ? "rgba(37, 99, 235, 0.15)" : "rgba(121, 248, 255, 0.18)",
+                    border: isLight ? "1px solid rgba(37, 99, 235, 0.3)" : "1px solid rgba(121, 248, 255, 0.3)",
+                  }
+                }}
+              >
+                {pill.label}
+              </Button>
+            ))}
+          </Box>
+        )}
+        {/* Upload Image/Document Preview bubble */}
         <AnimatePresence>
-          {(selectedImage || isPreparing) && (
+          {(selectedImage || selectedDocumentName || isPreparing || isPreparingDocument) && (
             <motion.div
               initial={{ opacity: 0, y: 12, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -231,7 +335,7 @@ export default function ChatInput({
                     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <CircularProgress size={20} sx={{ color: isLight ? theme.palette.primary.main : "#79f8ff" }} />
                     </Box>
-                  ) : (
+                  ) : selectedImage ? (
                     <Box
                       component="img"
                       src={selectedImage}
@@ -242,26 +346,41 @@ export default function ChatInput({
                         objectFit: "cover",
                       }}
                     />
+                  ) : (
+                    <Box sx={{ color: isLight ? theme.palette.primary.main : "#79f8ff", fontSize: 24, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                      {selectedDocumentType === "pdf" ? "📄" : "📝"}
+                      {isPreparingDocument && (
+                        <CircularProgress
+                          size={32}
+                          sx={{
+                            color: isLight ? theme.palette.primary.main : "#79f8ff",
+                            position: "absolute",
+                            zIndex: 1,
+                          }}
+                        />
+                      )}
+                    </Box>
                   )}
                 </Box>
                 
-                <Box sx={{ display: "flex", flexDirection: "column", maxWidth: 150 }}>
+                <Box sx={{ display: "flex", flexDirection: "column", maxWidth: 180 }}>
                   <Typography variant="caption" sx={{ color: textColor, fontWeight: 600, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", fontSize: "12px", fontFamily: "Inter, sans-serif" }}>
-                    {isPreparing ? "Preparing image..." : (selectedImageName || "Uploaded image")}
+                    {selectedDocumentName || selectedImageName || "Uploaded file"}
                   </Typography>
-                  {!isPreparing && (
-                    <Typography variant="caption" sx={{ color: isLight ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)", fontSize: "10px", fontFamily: "Inter, sans-serif" }}>
-                      Ready to send
-                    </Typography>
-                  )}
+                  <Typography variant="caption" sx={{ color: isLight ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)", fontSize: "10px", fontFamily: "Inter, sans-serif" }}>
+                    {selectedDocumentSize 
+                      ? `${(selectedDocumentSize / 1024).toFixed(1)} KB • ${isPreparingDocument ? "Parsing..." : "Ready"}` 
+                      : (isPreparing ? "Preparing image..." : "Ready to send")}
+                  </Typography>
                 </Box>
-
+ 
                 <IconButton
                   onClick={() => {
                     setIsPreparing(false);
-                    removeImage?.();
+                    if (selectedImage) removeImage?.();
+                    if (selectedDocumentName) removeDocument?.();
                   }}
-                  aria-label="Remove image"
+                  aria-label="Remove attachment"
                   size="small"
                   sx={{
                     width: 22,
@@ -281,25 +400,26 @@ export default function ChatInput({
         {/* Outer Capsule container with glassmorphism */}
         <motion.div
           animate={{
-            boxShadow: wrapperShadow,
+            boxShadow: isFocused ? "none" : wrapperShadow,
+            y: wrapperY,
             borderColor: isFocused
-              ? (isLight ? "rgba(37, 99, 235, 0.55)" : "rgba(121, 248, 255, 0.4)")
-              : (isLight ? "rgba(0, 0, 0, 0.15)" : "rgba(255, 255, 255, 0.05)"),
+              ? (isLight ? "rgba(37, 99, 235, 0.55)" : "rgba(121, 248, 255, 0.5)")
+              : isHovered
+              ? (isLight ? "rgba(0, 0, 0, 0.22)" : "rgba(255, 255, 255, 0.18)")
+              : (isLight ? "rgba(0, 0, 0, 0.15)" : "rgba(255, 255, 255, 0.08)"),
           }}
-          whileHover={{
-            borderColor: isFocused
-              ? (isLight ? "rgba(37, 99, 235, 0.55)" : "rgba(121, 248, 255, 0.4)")
-              : (isLight ? "rgba(0, 0, 0, 0.28)" : "rgba(255, 255, 255, 0.12)"),
-          }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
+          transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.25, ease: "easeOut" }}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          className={isFocused ? (isLight ? "composer-focused-glow" : "composer-focused-glow-dark") : ""}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 8,
             width: "100%",
             background: glassBg,
-            backdropFilter: "blur(25px)",
-            WebkitBackdropFilter: "blur(25px)",
+            backdropFilter: "blur(30px)",
+            WebkitBackdropFilter: "blur(30px)",
             border: "1px solid",
             borderRadius: "32px",
             padding: "8px 12px",
@@ -332,7 +452,7 @@ export default function ChatInput({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.pdf,.docx,.txt,.md,.csv,.json,.xlsx,.xls"
             onChange={handleFileChange}
             style={{ display: "none" }}
           />
@@ -346,7 +466,7 @@ export default function ChatInput({
             onPaste={handlePaste}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder="Ask Byte anything..."
+            placeholder={`Ask ${displayName} anything...`}
             aria-label="Message"
             minRows={1}
             style={{
@@ -372,110 +492,200 @@ export default function ChatInput({
               font-weight: 500;
               opacity: 0.75;
             }
+            @keyframes borderGlowPulse {
+              0% {
+                box-shadow: 0 20px 40px rgba(31, 41, 55, 0.08), 0 0 0 2px rgba(37, 99, 235, 0.12), 0 0 12px rgba(37, 99, 235, 0.08);
+              }
+              50% {
+                box-shadow: 0 20px 40px rgba(31, 41, 55, 0.08), 0 0 0 4px rgba(37, 99, 235, 0.28), 0 0 20px rgba(37, 99, 235, 0.2);
+              }
+              100% {
+                box-shadow: 0 20px 40px rgba(31, 41, 55, 0.08), 0 0 0 2px rgba(37, 99, 235, 0.12), 0 0 12px rgba(37, 99, 235, 0.08);
+              }
+            }
+            @keyframes borderGlowPulseDark {
+              0% {
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 0 2px rgba(121, 248, 255, 0.12), 0 0 15px rgba(121, 248, 255, 0.1);
+              }
+              50% {
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 0 4px rgba(121, 248, 255, 0.35), 0 0 28px rgba(121, 248, 255, 0.28);
+              }
+              100% {
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 0 2px rgba(121, 248, 255, 0.12), 0 0 15px rgba(121, 248, 255, 0.1);
+              }
+            }
+            .composer-focused-glow {
+              animation: borderGlowPulse 2s infinite ease-in-out;
+            }
+            .composer-focused-glow-dark {
+              animation: borderGlowPulseDark 2s infinite ease-in-out;
+            }
           `}</style>
 
-          {/* Voice Input Button */}
-          <Tooltip title={isRecording ? "Stop recording" : "Voice input"}>
-            <IconButton
-              onClick={toggleVoice}
-              aria-label={isRecording ? "Stop voice recording" : "Start voice recording"}
-              sx={{
-                width: 38,
-                height: 38,
-                flexShrink: 0,
-                color: isRecording ? "#FF4B4B" : iconColor,
-                position: "relative",
-                transition: "background 0.2s ease, transform 0.15s ease",
-                "&:hover": {
-                  background: isLight ? "rgba(0, 0, 0, 0.04)" : "rgba(255, 255, 255, 0.05)",
-                  transform: "scale(1.05)",
-                  color: isRecording ? "#FF4B4B" : (isLight ? theme.palette.primary.main : "#79f8ff"),
-                },
-              }}
-            >
-              {isRecording && (
-                <motion.span
-                  animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
-                  transition={{ duration: 1.2, repeat: Infinity, ease: "easeOut" }}
-                  style={{
-                    position: "absolute",
+          {editingMessageIndex !== null ? (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexShrink: 0, mr: 0.5 }}>
+              <Button
+                onClick={onCancelEdit}
+                size="small"
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 600,
+                  borderRadius: "20px",
+                  border: isLight ? "1px solid rgba(0, 0, 0, 0.15)" : "1px solid rgba(255, 255, 255, 0.12)",
+                  color: textColor,
+                  px: 2,
+                  py: 0.5,
+                  fontSize: "13px",
+                  fontFamily: "Inter, sans-serif",
+                  "&:hover": {
+                    borderColor: isLight ? "rgba(0, 0, 0, 0.28)" : "rgba(255, 255, 255, 0.24)",
+                    background: isLight ? "rgba(0, 0, 0, 0.04)" : "rgba(255, 255, 255, 0.05)",
+                  }
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (isSendingRef.current) return;
+                  isSendingRef.current = true;
+                  try {
+                    await handleSend();
+                  } finally {
+                    setTimeout(() => {
+                      isSendingRef.current = false;
+                    }, 300);
+                  }
+                }}
+                disabled={!canSend}
+                variant="contained"
+                size="small"
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 600,
+                  borderRadius: "20px",
+                  background: isLight ? theme.palette.primary.main : "#79f8ff",
+                  color: isLight ? "#ffffff" : "#0a0b10",
+                  px: 2.5,
+                  py: 0.5,
+                  fontSize: "13px",
+                  fontFamily: "Inter, sans-serif",
+                  "&:hover": {
+                    background: isLight ? theme.palette.primary.dark : "#ffffff",
+                  },
+                  "&.Mui-disabled": {
+                    background: isLight ? "rgba(0, 0, 0, 0.04)" : "rgba(255, 255, 255, 0.05)",
+                    color: isLight ? "rgba(0, 0, 0, 0.26)" : "rgba(255, 255, 255, 0.2)",
+                  }
+                }}
+              >
+                Save
+              </Button>
+            </Box>
+          ) : (
+            <>
+              {/* Voice Input Button */}
+              <Tooltip title={isRecording ? "Stop recording" : "Voice input"}>
+                <IconButton
+                  onClick={toggleVoice}
+                  aria-label={isRecording ? "Stop voice recording" : "Start voice recording"}
+                  sx={{
                     width: 38,
                     height: 38,
-                    borderRadius: "50%",
-                    background: "rgba(255,75,75,0.25)",
+                    flexShrink: 0,
+                    color: isRecording ? "#FF4B4B" : iconColor,
+                    position: "relative",
+                    transition: "background 0.2s ease, transform 0.15s ease",
+                    "&:hover": {
+                      background: isLight ? "rgba(0, 0, 0, 0.04)" : "rgba(255, 255, 255, 0.05)",
+                      transform: "scale(1.05)",
+                      color: isRecording ? "#FF4B4B" : (isLight ? theme.palette.primary.main : "#79f8ff"),
+                    },
                   }}
-                />
-              )}
-              <MicNoneRoundedIcon sx={{ position: "relative", zIndex: 1, fontSize: 22 }} />
-            </IconButton>
-          </Tooltip>
+                >
+                  {isRecording && (
+                    <motion.span
+                      animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+                      transition={{ duration: 1.2, repeat: Infinity, ease: "easeOut" }}
+                      style={{
+                        position: "absolute",
+                        width: 38,
+                        height: 38,
+                        borderRadius: "50%",
+                        background: "rgba(255,75,75,0.25)",
+                      }}
+                    />
+                  )}
+                  <MicNoneRoundedIcon sx={{ position: "relative", zIndex: 1, fontSize: 22 }} />
+                </IconButton>
+              </Tooltip>
 
-          {/* Send or Stop Message Button */}
-          <motion.div 
-            whileHover={true} 
-            whileTap={{ scale: 0.95 }}
-          >
-            <IconButton
-              onClick={async () => {
-                if (isGenerating) {
-                  onStopGeneration?.();
-                  return;
-                }
-                if (isSendingRef.current) return;
-                isSendingRef.current = true;
-                try {
-                  await handleSend();
-                } finally {
-                  setImage(null);
-                  setImagePreview(null);
-                  setTimeout(() => {
-                    isSendingRef.current = false;
-                  }, 300);
-                }
-              }}
-              disabled={!isGenerating && !canSend}
-              aria-label={isGenerating ? "Stop generation" : "Send message"}
-              sx={{
-                width: 38,
-                height: 38,
-                flexShrink: 0,
-                background: isGenerating 
-                  ? (isLight ? "rgba(220, 38, 38, 0.9)" : "rgba(239, 68, 68, 0.9)")
-                  : sendBtnBg,
-                color: isGenerating ? "#ffffff" : sendBtnColor,
-                boxShadow: isGenerating 
-                  ? "0 0 15px rgba(239, 68, 68, 0.4)" 
-                  : sendBtnShadow,
-                transition: "background 0.25s ease, box-shadow 0.25s ease",
-                "&:hover": {
-                  background: isGenerating 
-                    ? (isLight ? "rgba(220, 38, 38, 1)" : "rgba(239, 68, 68, 1)")
-                    : sendBtnHoverBg,
-                  boxShadow: isGenerating 
-                    ? "0 0 20px rgba(239, 68, 68, 0.6)" 
-                    : sendBtnShadow,
-                },
-                "&.Mui-disabled": {
-                  background: isLight ? "rgba(0, 0, 0, 0.04)" : "rgba(255, 255, 255, 0.05)",
-                  color: isLight ? "rgba(0, 0, 0, 0.26)" : "rgba(255, 255, 255, 0.2)",
-                  boxShadow: "none",
-                },
-              }}
-            >
-              {isGenerating ? (
-                <Box
-                  sx={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: "2px",
-                    backgroundColor: "currentColor",
+              {/* Send or Stop Message Button */}
+              <motion.div 
+                whileHover={true} 
+                whileTap={{ scale: 0.95 }}
+              >
+                <IconButton
+                  onClick={async () => {
+                    if (isGenerating) {
+                      onStopGeneration?.();
+                      return;
+                    }
+                    if (isSendingRef.current) return;
+                    isSendingRef.current = true;
+                    try {
+                      await handleSend();
+                    } finally {
+                      setTimeout(() => {
+                        isSendingRef.current = false;
+                      }, 300);
+                    }
                   }}
-                />
-              ) : (
-                <ArrowUpwardRoundedIcon sx={{ fontSize: 20, fontWeight: 700 }} />
-              )}
-            </IconButton>
-          </motion.div>
+                  disabled={!isGenerating && !canSend}
+                  aria-label={isGenerating ? "Stop generation" : "Send message"}
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    flexShrink: 0,
+                    background: isGenerating 
+                      ? (isLight ? "rgba(220, 38, 38, 0.9)" : "rgba(239, 68, 68, 0.9)")
+                      : sendBtnBg,
+                    color: isGenerating ? "#ffffff" : sendBtnColor,
+                    boxShadow: isGenerating 
+                      ? "0 0 15px rgba(239, 68, 68, 0.4)" 
+                      : sendBtnShadow,
+                    transition: "background 0.25s ease, box-shadow 0.25s ease",
+                    "&:hover": {
+                      background: isGenerating 
+                        ? (isLight ? "rgba(220, 38, 38, 1)" : "rgba(239, 68, 68, 1)")
+                        : sendBtnHoverBg,
+                      boxShadow: isGenerating 
+                        ? "0 0 20px rgba(239, 68, 68, 0.6)" 
+                        : sendBtnShadow,
+                    },
+                    "&.Mui-disabled": {
+                      background: isLight ? "rgba(0, 0, 0, 0.04)" : "rgba(255, 255, 255, 0.05)",
+                      color: isLight ? "rgba(0, 0, 0, 0.26)" : "rgba(255, 255, 255, 0.2)",
+                      boxShadow: "none",
+                    },
+                  }}
+                >
+                  {isGenerating ? (
+                    <Box
+                      sx={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: "2px",
+                        backgroundColor: "currentColor",
+                      }}
+                    />
+                  ) : (
+                    <ArrowUpwardRoundedIcon sx={{ fontSize: 20, fontWeight: 700 }} />
+                  )}
+                </IconButton>
+              </motion.div>
+            </>
+          )}
         </motion.div>
       </Box>
     </Box>

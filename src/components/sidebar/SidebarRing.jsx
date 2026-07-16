@@ -10,6 +10,7 @@ import {
 import {
   ringAnimation,
   glowAnimation,
+  wheelSpring,
 } from "./SidebarAnimations";
 
 const SIZE = WHEEL_RADIUS * 2;
@@ -23,8 +24,12 @@ export default function SidebarRing({ rotation = 0 }) {
 
   const thickness = outer - inner;
 
+  const ringRotationAngle = rotation * 0.15;
+
   return (
-    <div
+    <motion.div
+      animate={{ rotate: ringRotationAngle }}
+      transition={wheelSpring}
       style={{
         width: SIZE,
         height: SIZE,
@@ -166,6 +171,6 @@ export default function SidebarRing({ rotation = 0 }) {
             : "inset 0 0 24px rgba(0,0,0,.45)",
         }}
       />
-    </div>
+    </motion.div>
   );
 }

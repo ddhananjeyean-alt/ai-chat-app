@@ -1,7 +1,10 @@
-export const generateImage = (prompt) => {
+import { aiEngine } from "../ai/AIEngine";
+
+export const generateImage = async (prompt, signal, onProgress) => {
   if (!prompt?.trim()) {
     throw new Error("Image prompt is required.");
   }
 
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
+  // AIEngine.generateImage returns { imageUrl, modelUsed }
+  return await aiEngine.generateImage(prompt, { signal, onProgress });
 };

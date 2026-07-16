@@ -2,7 +2,6 @@ import React, { useRef, useState } from "react";
 import { Box, IconButton, Typography, Tooltip, Avatar, Menu, MenuItem, ListItemIcon, ListItemText, Divider, ClickAwayListener } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { motion, AnimatePresence } from "framer-motion";
-import MenuIcon from "@mui/icons-material/Menu";
 import IosShareRoundedIcon from "@mui/icons-material/IosShareRounded";
 import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
@@ -18,12 +17,10 @@ import { getAvatarColor } from "../../utils/avatarColor";
 import ArchiveBox from "./ArchiveBox";
 
 export default function Header({
-  onToggleSidebar,
   chatTitle,
   onShare,
   darkMode,
   onToggleTheme,
-  sidebarOpen,
   currentUser,
   onLogout,
   onOpenProfile,
@@ -108,26 +105,7 @@ export default function Header({
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, flex: 1 }}>
-        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }}>
-          <Tooltip title={sidebarOpen ? "Close sidebar" : "Open sidebar"}>
-            <IconButton
-              onClick={onToggleSidebar}
-              aria-label="Toggle sidebar"
-              sx={{
-                width: 36,
-                height: 36,
-                borderRadius: "10px",
-                color: iconColor,
-                transition: "background 0.15s ease",
-                "&:hover": { background: hoverBg },
-              }}
-            >
-              <MenuIcon sx={{ fontSize: 20 }} />
-            </IconButton>
-          </Tooltip>
-        </motion.div>
-
-        {/* ChatGPT Style New Chat Button Beside Toggle Button */}
+        {/* ChatGPT Style New Chat Button */}
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }}>
           <Tooltip title="New Chat">
             <IconButton

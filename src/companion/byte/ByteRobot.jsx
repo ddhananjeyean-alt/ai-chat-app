@@ -13,6 +13,7 @@ export default function ByteRobot({
   state: propState = "idle",
   expression: propExpression = "happy",
   gesture: propGesture = "none",
+  onHomeScreen = false,
 }) {
   const { byteState } = useByte();
   const [cuteAction, setCuteAction] = React.useState("none");
@@ -28,6 +29,78 @@ export default function ByteRobot({
       return () => clearInterval(interval);
     }
   }, [byteState, propState]);
+
+  const [lookOffset, setLookOffset] = React.useState({ x: 0, y: 0 });
+  const [overrideLook, setOverrideLook] = React.useState(null);
+
+  // Home screen mount looking sequence: look at greeting, then look at input
+  React.useEffect(() => {
+    if (onHomeScreen) {
+      // 1. Look at greeting (up-left)
+      const t1 = setTimeout(() => {
+        setOverrideLook({ x: -7, y: -5 });
+      }, 1200);
+
+      // 2. Look at input composer (down-left)
+      const t2 = setTimeout(() => {
+        setOverrideLook({ x: -5, y: 4 });
+      }, 2900);
+
+      // 3. Return to normal tracking
+      const t3 = setTimeout(() => {
+        setOverrideLook(null);
+      }, 4500);
+
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    } else {
+      setOverrideLook(null);
+    }
+  }, [onHomeScreen]);
+
+  // General cursor tracking
+  React.useEffect(() => {
+    if (overrideLook) return;
+
+    // Detect reduced motion preference
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (mediaQuery.matches) {
+      setLookOffset({ x: 0, y: 0 });
+      return;
+    }
+
+    const handleMouseMove = (e) => {
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+
+      // Estimate Byte's bottom-right coordinate
+      const byteX = windowWidth - size / 2 - 24;
+      const byteY = windowHeight - size * 0.7 - 24;
+
+      const dx = mouseX - byteX;
+      const dy = mouseY - byteY;
+      const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+
+      // Max eye translation offset
+      const maxOffset = 6.5;
+      const lookX = (dx / distance) * maxOffset;
+      const lookY = (dy / distance) * maxOffset;
+
+      setLookOffset({ x: lookX, y: lookY });
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, [overrideLook, size]);
+
+  const activeLookOffset = overrideLook || lookOffset;
 
   let state = propState;
   let expression = propExpression;
@@ -322,7 +395,7 @@ export default function ByteRobot({
           </g>
 
           {/* Face Elements (Eyes & Mouth) */}
-          <ByteFace expression={expression} />
+          <ByteFace expression={expression} lookOffset={activeLookOffset} />
         </g>
 
         {/* Gold Neck Connector */}
@@ -335,69 +408,72 @@ export default function ByteRobot({
           fill="url(#byteGold)"
         />
 
-        {/* Body Structure */}
-        <g filter="url(#shadow)">
-          {/* Main White Chest Shell */}
-          <rect
-            x="66"
-            y="176"
-            width="128"
-            height="98"
-            rx="40"
-            fill="url(#byteShell)"
-          />
+        {/* Body Structure Group with Breathing */}
+        <g className="byte-body-group">
+          {/* Body Structure */}
+          <g filter="url(#shadow)">
+            {/* Main White Chest Shell */}
+            <rect
+              x="66"
+              y="176"
+              width="128"
+              height="98"
+              rx="40"
+              fill="url(#byteShell)"
+            />
 
-          {/* Body Top Specular Highlight */}
-          <ellipse
-            cx="108"
-            cy="192"
-            rx="32"
-            ry="8"
-            fill="#fff"
-            opacity=".5"
-          />
+            {/* Body Top Specular Highlight */}
+            <ellipse
+              cx="108"
+              cy="192"
+              rx="32"
+              ry="8"
+              fill="#fff"
+              opacity=".5"
+            />
 
-          {/* Gold Bolt/Plates details on Body */}
-          <circle cx="78" cy="192" r="2.5" fill="url(#byteGold)" />
-          <circle cx="182" cy="192" r="2.5" fill="url(#byteGold)" />
+            {/* Gold Bolt/Plates details on Body */}
+            <circle cx="78" cy="192" r="2.5" fill="url(#byteGold)" />
+            <circle cx="182" cy="192" r="2.5" fill="url(#byteGold)" />
 
-          {/* Gold circuit line details */}
-          <path
-            d="M 82 205 L 94 205 L 98 215"
-            stroke="url(#byteGold)"
-            strokeWidth="1.5"
-            fill="none"
-            opacity="0.75"
-          />
-          <path
-            d="M 178 205 L 166 205 L 162 215"
-            stroke="url(#byteGold)"
-            strokeWidth="1.5"
-            fill="none"
-            opacity="0.75"
-          />
-        </g>
+            {/* Gold circuit line details */}
+            <path
+              d="M 82 205 L 94 205 L 98 215"
+              stroke="url(#byteGold)"
+              strokeWidth="1.5"
+              fill="none"
+              opacity="0.75"
+            />
+            <path
+              d="M 178 205 L 166 205 L 162 215"
+              stroke="url(#byteGold)"
+              strokeWidth="1.5"
+              fill="none"
+              opacity="0.75"
+            />
+          </g>
 
-        {/* Glowing Shield/Rounded-Rect Core (Reference Image Detail) */}
-        <g filter="url(#glow)">
-          <rect
-            x="110"
-            y="202"
-            width="40"
-            height="44"
-            rx="10"
-            fill="url(#byteGlow)"
-          />
-          {/* Glowing Inner Highlight */}
-          <rect
-            x="116"
-            y="208"
-            width="28"
-            height="32"
-            rx="6"
-            fill="#ffffff"
-            opacity="0.38"
-          />
+          {/* Glowing Shield/Rounded-Rect Core (Reference Image Detail) */}
+          <g filter="url(#glow)">
+            <rect
+              x="110"
+              y="202"
+              width="40"
+              height="44"
+              rx="10"
+              fill="url(#byteGlow)"
+            />
+            {/* Glowing Inner Highlight */}
+            <rect
+              x="116"
+              y="208"
+              width="28"
+              height="32"
+              rx="6"
+              fill="#ffffff"
+              opacity="0.38"
+            />
+          </g>
         </g>
 
         {/* Render the switch handle inside Byte's SVG for 3D overlap sandwich alignment */}

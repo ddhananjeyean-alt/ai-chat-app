@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { RestoreEvents } from "./RestoreEvents";
 
-export default function RestoreAnimationController({ conversations, setConversations }) {
+export default function RestoreAnimationController({ conversations, setConversations, setActiveChatId }) {
   const queueRef = useRef([]);
   const isAnimatingRef = useRef(false);
   const conversationsRef = useRef(conversations);
@@ -61,6 +61,11 @@ export default function RestoreAnimationController({ conversations, setConversat
             : chat
         )
       );
+      
+      // Automatically make it the active conversation
+      if (setActiveChatId) {
+        setActiveChatId(chatId);
+      }
     };
 
     const handleRestoreSequenceComplete = ({ chatId }) => {

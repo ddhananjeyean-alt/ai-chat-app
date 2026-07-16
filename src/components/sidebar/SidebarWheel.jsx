@@ -95,6 +95,9 @@ export default function SidebarWheel({
       setIsDeleting(true);
       setPendingDeleteId(chatId);
     });
+    const unsubStored = DeleteEvents.subscribe(DeleteEvents.DELETE_CHAT_STORED, () => {
+      setIsDeleting(false);
+    });
     const unsubComplete = DeleteEvents.subscribe(DeleteEvents.BYTE_VACUUM_COMPLETE, () => {
       setIsDeleting(false);
     });
@@ -103,6 +106,7 @@ export default function SidebarWheel({
     });
     return () => {
       unsubTrigger();
+      unsubStored();
       unsubComplete();
       unsubRestore();
     };
@@ -268,7 +272,7 @@ export default function SidebarWheel({
         }}
       >
         {/* Semi-circular Ring backdrop (Static Glass track) */}
-        <SidebarRing />
+        <SidebarRing rotation={rotation} />
 
         {/* Floating circular menu items (Pure math positioning) */}
         <SidebarItems

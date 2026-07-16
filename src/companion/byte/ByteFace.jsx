@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 export default function ByteFace({
   expression = "happy",
   eyeColor = "url(#byteGlow)",
+  lookOffset = { x: 0, y: 0 },
 }) {
   const [isBlinking, setIsBlinking] = useState(false);
 
@@ -551,7 +552,14 @@ export default function ByteFace({
 
   return (
     <g filter="url(#glow)">
-      {renderEyes()}
+      <g
+        style={{
+          transform: `translate(${lookOffset.x}px, ${lookOffset.y}px)`,
+          transition: "transform 0.15s cubic-bezier(0.25, 1, 0.5, 1)",
+        }}
+      >
+        {renderEyes()}
+      </g>
       {renderMouth()}
     </g>
   );

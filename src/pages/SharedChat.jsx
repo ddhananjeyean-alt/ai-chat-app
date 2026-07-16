@@ -13,28 +13,71 @@ import {
   Container,
   Avatar,
   Divider,
+  CircularProgress,
 } from "@mui/material";
 import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 function SharedChat() {
   const { id } = useParams();
   const { currentTheme } = useThemeContext();
   const darkMode = currentTheme?.palette?.mode === "dark";
 
-  const sharedChats =
-    JSON.parse(localStorage.getItem("sharedChats")) || {};
-
-  const chat = sharedChats[id];
-
+  const [chat, setChat] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [visibleMessages, setVisibleMessages] = useState([]);
   const [unfolded, setUnfolded] = useState(false);
 
+  useEffect(() => {
+    async function loadChat() {
+      // 1. Try local storage first
+      let localChat = null;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key === "sharedChats" || key.startsWith("sharedChats_")) {
+          try {
+            const stored = JSON.parse(localStorage.getItem(key)) || {};
+            if (stored[id]) {
+              localChat = stored[id];
+              break;
+            }
+          } catch (e) {
+            // Ignore
+          }
+        }
+      }
+
+      if (localChat) {
+        setChat(localChat);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Fetch from Firestore
+      try {
+        const docRef = doc(db, "sharedChats", id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setChat(docSnap.data());
+        }
+      } catch (err) {
+        console.error("Error loading shared chat from Firestore:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadChat();
+  }, [id]);
+
   const handleUnfoldComplete = () => {
     setUnfolded(true);
+    if (!chat || !chat.messages) return;
     let index = 0;
     const interval = setInterval(() => {
-      if (index < chat.messages.length) {
+      if (chat && chat.messages && index < chat.messages.length) {
         setVisibleMessages((prev) => [...prev, chat.messages[index]]);
         index++;
       } else {
@@ -42,6 +85,24 @@ function SharedChat() {
       }
     }, 250); // Stagger message cascade by 250ms for unfolding effect
   };
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          background: darkMode
+            ? "radial-gradient(circle at 10% 20%, rgba(20, 24, 38, 1) 0%, rgba(13, 15, 23, 1) 90%)"
+            : "radial-gradient(circle at 10% 20%, rgba(240, 245, 251, 1) 0%, rgba(248, 250, 252, 1) 90%)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <CircularProgress sx={{ color: darkMode ? "#2563EB" : "#1D4ED8" }} />
+      </Box>
+    );
+  }
 
   // If conversation is not found, return empty card state
   if (!chat) {

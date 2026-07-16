@@ -3,7 +3,6 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  Box,
   Typography,
   Divider,
   RadioGroup,
@@ -19,6 +18,7 @@ export default function SettingsDialog({
   onClose,
   darkMode,
   onDeleteAllChats,
+  onRenameCompanion,
 }) {
 
 const {
@@ -28,11 +28,7 @@ const {
   setFontSize,
 } = useThemeContext();
 
-console.log({
-  themeName,
-  fontSize,
-  setFontSize,
-});
+
 
 const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -90,12 +86,6 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               control={<Radio />}
               label="Dark"
             />
-
-            <FormControlLabel
-              value="system"
-              control={<Radio />}
-              label="System"
-            />
           </RadioGroup>
 
           <Divider sx={{ my: 3 }} />
@@ -136,6 +126,49 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               label="Large"
             />
           </RadioGroup>
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* Companion */}
+          <Typography
+            sx={{
+              fontWeight: 700,
+              mb: 1,
+            }}
+          >
+            Companion
+          </Typography>
+
+          <Typography
+            variant="body2"
+            sx={{
+              opacity: 0.75,
+              mb: 2,
+            }}
+          >
+            Personalize your AI companion by giving it a custom display name.
+          </Typography>
+
+          <Button
+            variant="contained"
+            onClick={onRenameCompanion}
+            sx={{
+              background: "linear-gradient(90deg, #06b6d4 0%, #7c3aed 100%)",
+              color: "#ffffff",
+              fontWeight: 700,
+              textTransform: "none",
+              borderRadius: "10px",
+              px: 3,
+              py: 1,
+              boxShadow: "0 4px 14px rgba(6, 182, 212, 0.2)",
+              "&:hover": {
+                background: "linear-gradient(90deg, #06b6d4 20%, #7c3aed 80%)",
+                boxShadow: "0 6px 20px rgba(6, 182, 212, 0.35)",
+              },
+            }}
+          >
+            Rename Companion
+          </Button>
 
           <Divider sx={{ my: 3 }} />
 
@@ -194,40 +227,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             </Stack>
           )}
 
-          <Divider sx={{ my: 3 }} />
 
-          {/* About */}
-
-          <Typography
-            sx={{
-              fontWeight: 700,
-              mb: 2,
-            }}
-          >
-            About
-          </Typography>
-
-          <Box sx={{ lineHeight: 2 }}>
-            <Typography>
-              <strong>Application</strong> : AI Chat Application
-            </Typography>
-
-            <Typography>
-              <strong>Version</strong> : 1.0.0
-            </Typography>
-
-            <Typography>
-              <strong>Developer</strong> : R. Dhananjeyean
-            </Typography>
-
-            <Typography>
-              <strong>Framework</strong> : React + Material UI
-            </Typography>
-
-            <Typography>
-              <strong>Backend</strong> : Firebase + Groq AI
-            </Typography>
-          </Box>
 
         </DialogContent>
       </Dialog>

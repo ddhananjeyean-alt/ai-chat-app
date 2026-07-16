@@ -35,16 +35,16 @@ export default function ShareAnimationController({
       return;
     }
 
-    // Subscribe to ENVELOPE_THROWN from ByteWelcomeGuide
-    const handleEnvelopeThrown = ({ byteCoords: coords, shareUrl: url }) => {
+    // Subscribe to SHARE_LINK_READY from App
+    const handleShareLinkReady = ({ shareUrl: url, shareCoords }) => {
       setShareUrl(url);
-      setByteCoords(coords);
+      setByteCoords(shareCoords);
       setOverlayState("flight_to_center");
 
       const centerCoords = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
       
       // Start Bezier flight to Center
-      startEnvelopeFlight(coords, centerCoords, () => {
+      startEnvelopeFlight(shareCoords, centerCoords, () => {
         setOverlayState("landed");
         
         // Wait 200ms as per Phase 3 rules, then slowly open top flap
@@ -54,8 +54,8 @@ export default function ShareAnimationController({
       });
     };
 
-    const unsubThrown = ShareEvents.subscribe(ShareEvents.ENVELOPE_THROWN, handleEnvelopeThrown);
-    return () => unsubThrown();
+    const unsubReady = ShareEvents.subscribe(ShareEvents.SHARE_LINK_READY, handleShareLinkReady);
+    return () => unsubReady();
   }, [isLanding]);
 
   const triggerLandingAnimation = () => {
@@ -78,7 +78,7 @@ export default function ShareAnimationController({
     });
   };
 
-  const startEnvelopeFlight = (start, end, onComplete) => {
+  const startEnvelopeFlight = (start, end, onComplete, isPaperPlane = false) => {
     const canvas = canvasRef.current;
     if (!canvas) {
       onComplete();
@@ -128,6 +128,36 @@ export default function ShareAnimationController({
       ctx.moveTo(-18, -12);
       ctx.lineTo(0, 2);
       ctx.lineTo(18, -12);
+      ctx.stroke();
+
+      ctx.restore();
+    };
+
+    const drawPaperPlane = (x, y, angle, scale = 1.2) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.scale(scale, scale);
+
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = glowColor;
+
+      ctx.strokeStyle = isLight ? "#2563EB" : "#79f8ff";
+      ctx.fillStyle = isLight ? "rgba(37, 99, 235, 0.15)" : "rgba(121, 248, 255, 0.25)";
+      ctx.lineWidth = 1.5;
+
+      ctx.beginPath();
+      ctx.moveTo(0, -15);
+      ctx.lineTo(12, 15);
+      ctx.lineTo(0, 5);
+      ctx.lineTo(-12, 15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(0, -15);
+      ctx.lineTo(0, 5);
       ctx.stroke();
 
       ctx.restore();
@@ -208,7 +238,16 @@ export default function ShareAnimationController({
       }
 
       if (progress < 1) {
-        drawEnvelope(x, y, angle);
+        if (isPaperPlane) {
+          drawPaperPlane(x, y, angle);
+        } else {
+          // Envelope grows slightly at the start of the flight
+          let scale = 1.0;
+          if (progress < 0.25) {
+            scale = 0.15 + (progress / 0.25) * 0.85;
+          }
+          drawEnvelope(x, y, angle, scale);
+        }
         requestAnimationFrame(animate);
       } else {
         drawBurst(end.x, end.y);
@@ -261,24 +300,21 @@ export default function ShareAnimationController({
   const handleCloseEnvelope = () => {
     setOverlayState("closing");
 
-    // Let Byte know to run the return catch sequence
-    ShareEvents.publish(ShareEvents.ENVELOPE_RETURN_REQUEST, {
-      byteCoords,
-    });
-
     // Close animations (Framer motion exit takes 500ms)
     setTimeout(() => {
       const centerCoords = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-      setOverlayState("flight_to_byte");
+      const offscreenCoords = { x: window.innerWidth + 150, y: -150 };
+      setOverlayState("flight_offscreen");
       
-      startEnvelopeFlight(centerCoords, byteCoords, () => {
+      startEnvelopeFlight(centerCoords, offscreenCoords, () => {
         // Reset overlay back to idle
         setOverlayState(null);
         setShareUrl("");
-      });
+      }, true);
     }, 500);
   };
 
+  const scaleFactor = window.innerWidth < 400 ? 0.82 : 1.0;
   const showBackdrop = overlayState === "landed" || overlayState === "open" || overlayState === "closing";
   const envelopeColor = isLight ? "#2563EB" : "#79f8ff";
 
@@ -313,9 +349,9 @@ export default function ShareAnimationController({
       <AnimatePresence>
         {(overlayState === "landed" || overlayState === "open" || overlayState === "closing") && (
           <motion.div
-            initial={{ scale: 0.5, rotate: -10, opacity: 0, x: "-50%", y: "-50%" }}
+            initial={{ scale: 0.5 * scaleFactor, rotate: -10, opacity: 0, x: "-50%", y: "-50%" }}
             animate={{ 
-              scale: overlayState === "closing" ? 0 : 1, 
+              scale: overlayState === "closing" ? 0 : scaleFactor, 
               rotate: 0, 
               opacity: overlayState === "closing" ? 0 : 1 
             }}

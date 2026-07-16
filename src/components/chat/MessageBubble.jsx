@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, memo } from "react";
 import { Box, Typography, IconButton, Tooltip, TextField, Button, Avatar, useTheme } from "@mui/material";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
@@ -11,9 +11,12 @@ import ReplayIcon from "@mui/icons-material/Replay";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import PersonIcon from "@mui/icons-material/Person";
+import DownloadIcon from "@mui/icons-material/Download";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { useThemeContext } from "../../theme/ThemeContext";
+import { useByte } from "../../context/ByteContext";
 
-export default function MessageBubble({
+function MessageBubble({
   message,
   isUser,
   onCopy,
@@ -22,10 +25,15 @@ export default function MessageBubble({
   onImageClick,
   darkMode = true,
   messageIndex,
+  isEditingThis,
+  onImageLoad,
+  onImageError,
+  readOnly = false,
 }) {
   const theme = useTheme();
   const { fontSize } = useThemeContext();
   const isLight = theme.palette.mode === "light";
+  const { displayName } = useByte();
 
   const resolvedFontSize =
     fontSize === "small"
@@ -35,8 +43,7 @@ export default function MessageBubble({
       : 16;
 
   const [copied, setCopied] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(message?.text || "");
+  const [imageLoaded, setImageLoaded] = useState(false);
   const hoverRef = useRef(null);
 
   const content = message?.text || "";
@@ -53,19 +60,33 @@ export default function MessageBubble({
     if (onRegenerate) onRegenerate(messageIndex);
   };
 
-  const startEdit = () => {
-    setEditValue(content);
-    setIsEditing(true);
-  };
-
-  const cancelEdit = () => {
-    setIsEditing(false);
-    setEditValue(content);
-  };
-
-  const saveEdit = () => {
-    if (onEdit) onEdit(messageIndex, editValue);
-    setIsEditing(false);
+  const downloadImage = async (imageUrl) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      
+      const now = new Date();
+      const pad = (num) => String(num).padStart(2, "0");
+      const year = now.getFullYear();
+      const month = pad(now.getMonth() + 1);
+      const day = pad(now.getDate());
+      const hours = pad(now.getHours());
+      const minutes = pad(now.getMinutes());
+      const seconds = pad(now.getSeconds());
+      
+      link.download = `AI_Image_${year}-${month}-${day}_${hours}-${minutes}-${seconds}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Failed to download image:", error);
+      window.open(imageUrl, "_blank");
+    }
   };
 
   return (
@@ -116,69 +137,6 @@ export default function MessageBubble({
           marginLeft: isUser ? "auto" : 0,
         }}
       >
-        {isEditing ? (
-          <Box sx={{ width: 500, maxWidth: "100%" }}>
-            <TextField
-              multiline
-              fullWidth
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              variant="outlined"
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  color: theme.palette.text.primary,
-                  fontFamily: "Inter, sans-serif",
-                  fontSize: resolvedFontSize,
-                  background: isLight ? "rgba(255, 255, 255, 0.9)" : "rgba(30, 30, 35, 0.9)",
-                  borderRadius: "20px",
-                  backdropFilter: "blur(12px)",
-                  "& fieldset": { 
-                    borderColor: isLight ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.1)" 
-                  },
-                  "&:hover fieldset": { 
-                    borderColor: isLight ? "rgba(30,64,175,0.3)" : "rgba(121,248,255,0.3)" 
-                  },
-                  "&.Mui-focused fieldset": { 
-                    borderColor: isLight ? theme.palette.primary.main : "#79f8ff" 
-                  },
-                },
-              }}
-            />
-            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1.5 }}>
-              <Button
-                onClick={cancelEdit}
-                size="small"
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 600,
-                  color: theme.palette.text.secondary,
-                  borderRadius: "999px",
-                  px: 2.5,
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={saveEdit}
-                size="small"
-                variant="contained"
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 600,
-                  borderRadius: "999px",
-                  px: 2.5,
-                  background: isLight ? theme.palette.primary.main : "#79f8ff",
-                  color: isLight ? "#ffffff" : "#0a0b10",
-                  "&:hover": { 
-                    background: isLight ? theme.palette.primary.dark : "#a78bfa" 
-                  },
-                }}
-              >
-                Save
-              </Button>
-            </Box>
-          </Box>
-        ) : (
           <motion.div
             initial={{ opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -190,138 +148,359 @@ export default function MessageBubble({
           >
             {/* Attachment preview */}
             {image && (
-              <Box
-                component="img"
-                src={image}
-                alt="attachment"
-                onClick={() => onImageClick && onImageClick(image)}
-                sx={{
-                  maxWidth: 340,
-                  maxHeight: 340,
-                  borderRadius: "18px",
-                  cursor: "pointer",
-                  display: "block",
-                  mb: content ? 1.5 : 0,
-                  objectFit: "cover",
-                  boxShadow: isLight
-                    ? "0 4px 16px rgba(0, 0, 0, 0.05)"
-                    : "0 4px 25px rgba(0, 0, 0, 0.35)",
-                  transition: "transform 0.2s ease",
-                  "&:hover": {
-                    transform: "scale(1.015)",
-                  },
-                }}
-              />
-            )}
-
-            {/* Bubble styling */}
-            {content && (
-              <Box
-                sx={
-                  isUser
-                    ? {
-                        // User message: pill rounded tint in light mode
-                        background: isLight
-                          ? "#EEF6FF"
-                          : "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-                        color: isLight ? "#1F2937" : "#ffffff",
-                        borderRadius: "22px",
-                        border: isLight ? "1px solid rgba(220, 228, 240, 0.8)" : "none",
-                        px: 2.4,
-                        py: 1.3,
-                        fontFamily: "Inter, sans-serif",
-                        fontSize: resolvedFontSize,
-                        lineHeight: 1.45,
-                        wordBreak: "break-word",
-                        boxShadow: isLight
-                          ? "0 4px 12px rgba(0, 0, 0, 0.04)"
-                          : "0 4px 25px rgba(99, 102, 241, 0.22)",
-                      }
-                    : {
-                        // AI message: glass card / white panel in light mode
-                        position: "relative",
-                        background: isLight ? "#FFFFFF" : "rgba(20, 24, 34, 0.45)",
-                        border: isLight ? "1px solid rgba(220, 228, 240, 0.8)" : "1px solid rgba(255, 255, 255, 0.08)",
-                        borderRadius: "22px",
-                        p: "22px",
-                        backdropFilter: isLight ? "blur(20px)" : "blur(22px) saturate(180%)",
-                        WebkitBackdropFilter: isLight ? "blur(20px)" : "blur(22px) saturate(180%)",
-                        boxShadow: isLight
-                          ? "0 8px 30px rgba(31, 41, 55, 0.05)"
-                          : "0 12px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(0, 180, 255, 0.08)",
-                        width: "100%",
-                        maxWidth: 850,
-                        boxSizing: "border-box",
-                        animation: message.playCompleteEffect ? "bubbleCompletePulse 0.3s ease-out" : "none",
-                        "@keyframes bubbleCompletePulse": {
-                          "0%": { transform: "scale(1)" },
-                          "50%": { transform: "scale(1.01)" },
-                          "100%": { transform: "scale(1)" }
-                        }
-                      }
-                }
-              >
-                {/* AI Completion Glow Ripple Overlay */}
-                {!isUser && message.playCompleteEffect && (
-                  <motion.div
-                    initial={{ opacity: 0.6, scale: 0.95 }}
-                    animate={{ opacity: 0, scale: 1.05 }}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
-                    style={{
-                      position: "absolute",
-                      inset: -2,
+              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", maxWidth: 340, mb: content ? 1.5 : 0 }}>
+                <Box sx={{ position: "relative", display: "inline-block", maxWidth: 340, maxHeight: 340, width: "100%" }}>
+                  <Box
+                    component="img"
+                    src={image}
+                    alt="attachment"
+                    onClick={() => onImageClick && onImageClick(image)}
+                    onLoad={() => {
+                      setImageLoaded(true);
+                      if (onImageLoad) onImageLoad(message.id);
+                    }}
+                    onError={() => {
+                      if (onImageError) onImageError(message.id);
+                    }}
+                    sx={{
+                      maxWidth: 340,
+                      maxHeight: 340,
+                      width: "100%",
                       borderRadius: "18px",
-                      border: isLight ? "2px solid rgba(59, 130, 246, 0.6)" : "2px solid rgba(121, 248, 255, 0.6)",
+                      cursor: "pointer",
+                      display: "block",
+                      objectFit: "cover",
                       boxShadow: isLight
-                        ? "0 0 15px rgba(59, 130, 246, 0.4)"
-                        : "0 0 20px rgba(121, 248, 255, 0.5)",
-                      pointerEvents: "none",
-                      zIndex: 2,
+                        ? "0 4px 16px rgba(0, 0, 0, 0.05)"
+                        : "0 4px 25px rgba(0, 0, 0, 0.35)",
+                      opacity: imageLoaded ? 1 : 0,
+                      transition: "opacity 0.5s ease, transform 0.2s ease",
+                      "&:hover": {
+                        transform: "scale(1.015)",
+                      },
                     }}
                   />
-                )}
-                {isUser ? (
-                  <Typography
+                  {imageLoaded && (
+                    <Tooltip title="Download Image">
+                      <IconButton
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadImage(image);
+                        }}
+                        sx={{
+                          position: "absolute",
+                          bottom: 10,
+                          right: 10,
+                          background: "rgba(15, 18, 36, 0.65)",
+                          backdropFilter: "blur(8px)",
+                          border: "1px solid rgba(255, 255, 255, 0.15)",
+                          color: "#ffffff",
+                          padding: "8px",
+                          borderRadius: "50%",
+                          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.25)",
+                          transition: "all 0.2s ease-in-out",
+                          "&:hover": {
+                            background: "rgba(15, 18, 36, 0.85)",
+                            transform: "scale(1.1)",
+                          },
+                        }}
+                      >
+                        <DownloadIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+                {/* Debug Mode: Expose Refined Prompt & Model */}
+                {imageLoaded && localStorage.getItem("debug") === "true" && message?.metadata?.enhancedPrompt && (
+                  <Box
                     sx={{
-                      fontFamily: "Inter, sans-serif",
-                      fontSize: resolvedFontSize,
-                      lineHeight: 1.45,
-                      whiteSpace: "pre-wrap",
-                      m: 0,
+                      mt: 1.5,
+                      p: 1.5,
+                      borderRadius: "14px",
+                      backgroundColor: isLight ? "rgba(0, 0, 0, 0.03)" : "rgba(255, 255, 255, 0.03)",
+                      border: isLight ? "1px solid rgba(0, 0, 0, 0.06)" : "1px solid rgba(255, 255, 255, 0.06)",
+                      width: "100%",
+                      boxSizing: "border-box"
                     }}
                   >
-                    {content}
-                  </Typography>
-                ) : (
-                  <>
                     <Typography
+                      variant="caption"
                       sx={{
                         fontWeight: 700,
-                        fontSize: "14px",
-                        color: isLight ? "#98A2B3" : "rgba(255, 255, 255, 0.5)",
-                        mb: 1.5,
+                        display: "block",
+                        mb: 0.5,
+                        color: isLight ? "#1e40af" : "#79f8ff",
                         fontFamily: "Inter, sans-serif",
-                        letterSpacing: "0.05em",
-                        textTransform: "uppercase"
+                        textTransform: "uppercase",
+                        fontSize: "10px",
+                        letterSpacing: "0.05em"
                       }}
                     >
-                      Byte
+                      Optimized Prompt (Debug)
                     </Typography>
-                    <MarkdownContent
-                      content={content}
-                      darkMode={darkMode}
-                      fontSize={resolvedFontSize}
-                      isBot={true}
-                    />
-                  </>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontStyle: "italic",
+                        color: theme.palette.text.secondary,
+                        fontFamily: "Inter, sans-serif",
+                        fontSize: "11px",
+                        lineHeight: 1.35,
+                        display: "block",
+                        wordBreak: "break-word"
+                      }}
+                    >
+                      "{message.metadata.enhancedPrompt}"
+                    </Typography>
+                    {message.metadata?.generationModel && (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: 500,
+                          display: "block",
+                          mt: 1,
+                          color: isLight ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.4)",
+                          fontFamily: "Inter, sans-serif",
+                          fontSize: "9px"
+                        }}
+                      >
+                        Model: {message.metadata.generationModel}
+                      </Typography>
+                    )}
+                  </Box>
                 )}
               </Box>
             )}
+            {/* Document attachment card */}
+            {isUser && message.metadata?.documentName && (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.5,
+                  p: 1.5,
+                  mb: 1.5,
+                  borderRadius: "14px",
+                  background: isLight ? "rgba(37, 99, 235, 0.05)" : "rgba(255, 255, 255, 0.08)",
+                  border: isLight ? "1px solid rgba(37, 99, 235, 0.12)" : "1px solid rgba(255, 255, 255, 0.12)",
+                  maxWidth: 320,
+                  alignSelf: "flex-end",
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "8px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: isLight ? "#EEF6FF" : "rgba(121, 248, 255, 0.1)",
+                    fontSize: 20,
+                    flexShrink: 0,
+                  }}
+                >
+                  {message.metadata.documentType === "pdf" ? "📄" : "📝"}
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      color: isLight ? "#1F2937" : "#FFFFFF",
+                      display: "block",
+                      textOverflow: "ellipsis",
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      fontFamily: "Inter, sans-serif",
+                    }}
+                  >
+                    {message.metadata.documentName}
+                  </Typography>
+                  {message.metadata.documentSize && (
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontSize: "10px",
+                        color: isLight ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)",
+                        fontFamily: "Inter, sans-serif",
+                      }}
+                    >
+                      {(message.metadata.documentSize / 1024).toFixed(1)} KB • Document
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
+
+            {/* Bubble styling */}
+            {message.type === "image" && message.status === "error" ? (
+              <Box
+                sx={{
+                  width: "100%",
+                  maxWidth: 340,
+                  p: 3,
+                  borderRadius: "18px",
+                  background: isLight 
+                    ? "rgba(239, 68, 68, 0.04)" 
+                    : "rgba(239, 68, 68, 0.02)",
+                  border: isLight 
+                    ? "1px dashed rgba(239, 68, 68, 0.3)" 
+                    : "1px dashed rgba(239, 68, 68, 0.2)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 1.5,
+                  textAlign: "center",
+                  boxShadow: isLight
+                    ? "0 4px 12px rgba(0, 0, 0, 0.02)"
+                    : "0 4px 20px rgba(0, 0, 0, 0.15)",
+                }}
+              >
+                <WarningAmberIcon sx={{ color: "#ef4444", fontSize: 32 }} />
+                <Typography
+                  sx={{
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: "13px",
+                    color: isLight ? "#1F2937" : "#F3F4F6",
+                    lineHeight: 1.5,
+                    fontWeight: 500
+                  }}
+                >
+                  {content || "Image generation failed."}
+                </Typography>
+                <Button
+                  onClick={handleRegenerate}
+                  variant="outlined"
+                  size="small"
+                  startIcon={<ReplayIcon />}
+                  sx={{
+                    borderColor: isLight ? "rgba(0, 0, 0, 0.15)" : "rgba(255, 255, 255, 0.15)",
+                    color: isLight ? "#1F2937" : "#F3F4F6",
+                    fontSize: "11px",
+                    textTransform: "none",
+                    borderRadius: "8px",
+                    "&:hover": {
+                      borderColor: isLight ? "#000000" : "#ffffff",
+                      background: "transparent",
+                    }
+                  }}
+                >
+                  Regenerate
+                </Button>
+              </Box>
+            ) : (
+              content && (
+                <Box
+                  sx={
+                    isUser
+                      ? {
+                          // User message: pill rounded tint in light mode
+                          background: isLight
+                            ? "#EEF6FF"
+                            : "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+                          color: isLight ? "#1F2937" : "#ffffff",
+                          borderRadius: "22px",
+                          border: isEditingThis 
+                            ? (isLight ? "2px solid #2563EB" : "2px solid #79f8ff")
+                            : (isLight ? "1px solid rgba(220, 228, 240, 0.8)" : "none"),
+                          px: 2.4,
+                          py: 1.3,
+                          fontFamily: "Inter, sans-serif",
+                          fontSize: resolvedFontSize,
+                          lineHeight: 1.45,
+                          wordBreak: "break-word",
+                          boxShadow: isEditingThis
+                            ? (isLight ? "0 0 12px rgba(37, 99, 235, 0.3)" : "0 0 16px rgba(121, 248, 255, 0.35)")
+                            : (isLight ? "0 4px 12px rgba(0, 0, 0, 0.04)" : "0 4px 25px rgba(99, 102, 241, 0.22)"),
+                          transition: "border 0.25s ease, box-shadow 0.25s ease",
+                        }
+                      : {
+                          // AI message: glass card / white panel in light mode
+                          position: "relative",
+                          background: isLight ? "#FFFFFF" : "rgba(20, 24, 34, 0.45)",
+                          border: isLight ? "1px solid rgba(220, 228, 240, 0.8)" : "1px solid rgba(255, 255, 255, 0.08)",
+                          borderRadius: "22px",
+                          p: "22px",
+                          backdropFilter: isLight ? "blur(20px)" : "blur(22px) saturate(180%)",
+                          WebkitBackdropFilter: isLight ? "blur(20px)" : "blur(22px) saturate(180%)",
+                          boxShadow: isLight
+                            ? "0 8px 30px rgba(31, 41, 55, 0.05)"
+                            : "0 12px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(0, 180, 255, 0.08)",
+                          width: "100%",
+                          maxWidth: 850,
+                          boxSizing: "border-box",
+                          animation: message.playCompleteEffect ? "bubbleCompletePulse 0.3s ease-out" : "none",
+                          "@keyframes bubbleCompletePulse": {
+                            "0%": { transform: "scale(1)" },
+                            "50%": { transform: "scale(1.01)" },
+                            "100%": { transform: "scale(1)" }
+                          }
+                        }
+                  }
+                >
+                  {/* AI Completion Glow Ripple Overlay */}
+                  {!isUser && message.playCompleteEffect && (
+                    <motion.div
+                      initial={{ opacity: 0.6, scale: 0.95 }}
+                      animate={{ opacity: 0, scale: 1.05 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      style={{
+                        position: "absolute",
+                        inset: -2,
+                        borderRadius: "18px",
+                        border: isLight ? "2px solid rgba(59, 130, 246, 0.6)" : "2px solid rgba(121, 248, 255, 0.6)",
+                        boxShadow: isLight
+                          ? "0 0 15px rgba(59, 130, 246, 0.4)"
+                          : "0 0 20px rgba(121, 248, 255, 0.5)",
+                        pointerEvents: "none",
+                        zIndex: 2,
+                      }}
+                    />
+                  )}
+                  {isUser ? (
+                    <Typography
+                      sx={{
+                        fontFamily: "Inter, sans-serif",
+                        fontSize: resolvedFontSize,
+                        lineHeight: 1.45,
+                        whiteSpace: "pre-wrap",
+                        m: 0,
+                      }}
+                    >
+                      {content}
+                    </Typography>
+                  ) : (
+                    <>
+                      <Typography
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: "14px",
+                          color: isLight ? "#98A2B3" : "rgba(255, 255, 255, 0.5)",
+                          mb: 1.5,
+                          fontFamily: "Inter, sans-serif",
+                          letterSpacing: "0.05em",
+                          textTransform: "uppercase"
+                        }}
+                      >
+                        {displayName}
+                      </Typography>
+                      <MarkdownContent
+                        content={content}
+                        darkMode={darkMode}
+                        fontSize={resolvedFontSize}
+                        isBot={true}
+                      />
+                    </>
+                  )}
+                </Box>
+              )
+            )}
           </motion.div>
-        )}
 
         {/* Action icons below messages */}
-        {!isEditing && (
+        {!readOnly && (
           <Box
             className="msg-actions"
             sx={{
@@ -332,12 +511,12 @@ export default function MessageBubble({
               transition: "opacity 0.2s ease",
             }}
           >
-            {isUser ? (
+            {isUser && !isEditingThis ? (
               <>
                 <Tooltip title="Edit">
                   <IconButton 
                     size="small" 
-                    onClick={startEdit} 
+                    onClick={() => onEdit && onEdit(messageIndex, content)} 
                     sx={{ 
                       color: theme.palette.text.secondary, 
                       opacity: 0.65, 
@@ -652,6 +831,8 @@ function MarkdownContent({ content, _darkMode, fontSize = 16, isBot = false }) {
 
 // Custom CodeBlock Component
 function CodeBlock({ language, codeString }) {
+  const theme = useTheme();
+  const isLight = theme.palette.mode === "light";
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -730,3 +911,19 @@ function CodeBlock({ language, codeString }) {
     </Box>
   );
 }
+
+export default memo(MessageBubble, (prevProps, nextProps) => {
+  return (
+    prevProps.message?.id === nextProps.message?.id &&
+    prevProps.message?.text === nextProps.message?.text &&
+    prevProps.message?.status === nextProps.message?.status &&
+    prevProps.message?.image === nextProps.message?.image &&
+    prevProps.message?.imageUrl === nextProps.message?.imageUrl &&
+    prevProps.isUser === nextProps.isUser &&
+    prevProps.darkMode === nextProps.darkMode &&
+    prevProps.fontSize === nextProps.fontSize &&
+    prevProps.messageIndex === nextProps.messageIndex &&
+    prevProps.isEditingThis === nextProps.isEditingThis &&
+    prevProps.readOnly === nextProps.readOnly
+  );
+});

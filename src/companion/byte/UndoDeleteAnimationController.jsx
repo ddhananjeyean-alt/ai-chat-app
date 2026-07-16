@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DeleteEvents } from "./DeleteEvents";
 
-export default function UndoDeleteAnimationController({ conversations, setConversations }) {
+export default function UndoDeleteAnimationController({ conversations, setConversations, activeChatId, setActiveChatId }) {
   const [activeUndo, setActiveUndo] = useState(null); // { chatId, title, origCoords, index }
   const [timeLeft, setTimeLeft] = useState(8000);
 
@@ -10,6 +10,12 @@ export default function UndoDeleteAnimationController({ conversations, setConver
   const isAnimatingRef = useRef(false);
   const conversationsRef = useRef(conversations);
   const temporaryStorageRef = useRef({}); // chatId -> { chat, origIndex, coords, timerId }
+  const activeChatIdRef = useRef(activeChatId);
+
+  // Keep activeChatId ref synchronized
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
 
   // Keep conversations ref synchronized to avoid closing over stale state in callbacks
   useEffect(() => {
@@ -90,6 +96,7 @@ export default function UndoDeleteAnimationController({ conversations, setConver
         origCoords,
         timerId,
         timestamp: Date.now(),
+        wasActive: activeChatIdRef.current === chatId,
       };
 
       // Remove the chat from visible Recent Chats in UI (Stage 1 deletion)
@@ -147,6 +154,11 @@ export default function UndoDeleteAnimationController({ conversations, setConver
         }
         return next;
       });
+
+      // Restore active selection if the chat was active before deletion
+      if (stored.wasActive && setActiveChatId) {
+        setActiveChatId(chatId);
+      }
 
       // Clean up temporary storage entry
       delete temporaryStorageRef.current[chatId];

@@ -11,6 +11,7 @@ import { useByte } from "../../context/ByteContext";
 import { RestoreEvents } from "./RestoreEvents";
 import { ShareEvents } from "./ShareEvents";
 import { ShareEnvelopeEvents } from "./ShareEnvelopeEvents";
+import { SearchEvents } from "./SearchEvents";
 import { Box, Typography } from "@mui/material";
 
 function TypingText({ text, speed = 25 }) {
@@ -65,6 +66,15 @@ export default function ByteWelcomeGuide({
     setIsReturning,
     originalPosition,
     setOriginalPosition,
+    setHasPlayedSearchDelivery,
+    namingActive,
+    namingPlaceholderPos,
+    namingRobotState,
+    namingExpression,
+    namingGesture,
+    namingTilt,
+    namingLookOffset,
+    namingJumpActive,
   } = useByte();
 
   const [celebrate, setCelebrate] = useState(false);
@@ -166,6 +176,19 @@ export default function ByteWelcomeGuide({
   const renameOverridePosRef = useRef(null);
   useEffect(() => { renameStateRef.current = renameState; }, [renameState]);
   useEffect(() => { renameOverridePosRef.current = renameOverridePos; }, [renameOverridePos]);
+
+  // Search animation states
+  const [searchState, setSearchState] = useState(null); // null, 'go_to_placeholder', 'opening_bag', 'pulling_bar', 'placing_bar', 'pointing', 'return_home'
+  const [searchCoords, setSearchCoords] = useState({ x: 0, y: 0 });
+  const [searchOverridePos, setSearchOverridePos] = useState(null);
+  const [searchBubbleActive, setSearchBubbleActive] = useState(false);
+  const [searchParticles, setSearchParticles] = useState([]);
+  const [showToolBag, setShowToolBag] = useState(false);
+  const [bagOpen, setBagOpen] = useState(false);
+  const [showMiniBar, setShowMiniBar] = useState(false);
+  const [miniBarPos, setMiniBarPos] = useState({ x: 0, y: 0 });
+  const [isSearchTyping, setIsSearchTyping] = useState(false);
+  const [searchNoticeBubble, setSearchNoticeBubble] = useState("");
 
   // Track component mounted lifecycle
   useEffect(() => {
@@ -304,44 +327,19 @@ export default function ByteWelcomeGuide({
 
     if (!isMountedRef.current) return;
 
-    // Step 5: Byte walks to the chat
-    setDeleteState("go_to_chat");
-
-    const startX = rect.left;
-    const startY = rect.top;
-    const endX = coords.x - 47.5 + 40; 
-    const endY = coords.y - 120;
-
-    const flyDuration = getVelocityDuration(startX, startY, endX, endY, 1000);
-
-    // MOVE_TO_CHAT
-    await animatePromise(0, 1, {
-      duration: flyDuration,
-      ease: [0.645, 0.045, 0.355, 1], // easeInOutCubic
-      onUpdate: (latest) => {
-        if (!isMountedRef.current) return;
-        setDeleteOverridePos({
-          x: startX + (endX - startX) * latest,
-          y: startY + (endY - startY) * latest
-        });
-      }
-    });
-
-    if (!isMountedRef.current) return;
-
-    // Step 6 & 7: VACUUM
+    // Step 6 & 7: VACUUM (Byte stays in place and vacuums)
     setDeleteState("vacuuming");
     DeleteEvents.publish(DeleteEvents.BYTE_REACHED, { chatId });
 
-    animateChatVacuum(chatId, endX, endY, coords.x, coords.y);
+    animateChatVacuum(chatId, origPos.x, origPos.y, coords.x, coords.y);
 
     const interval = setInterval(() => {
       if (!isMountedRef.current) {
         clearInterval(interval);
         return;
       }
-      const pStartX = coords.x - endX - 20 + Math.random() * 40;
-      const pStartY = coords.y - endY - 10 + Math.random() * 20;
+      const pStartX = coords.x - origPos.x - 20 + Math.random() * 40;
+      const pStartY = coords.y - origPos.y - 10 + Math.random() * 20;
       const targetX = 47.5;
       const targetY = 85;
 
@@ -393,32 +391,6 @@ export default function ByteWelcomeGuide({
     setDeleteBubbleActive(true);
     await new Promise((resolve) => setTimeout(resolve, 1500));
     setDeleteBubbleActive(false);
-
-    if (!isMountedRef.current) return;
-
-    // RETURN_HOME
-    setDeleteState("return_home");
-    setIsReturning(true);
-    setCurrentTarget(null);
-
-    const currentX = endX;
-    const currentY = endY;
-    const homeX = origPos.x;
-    const homeY = origPos.y;
-
-    const returnDuration = getVelocityDuration(currentX, currentY, homeX, homeY, 1000);
-
-    await animatePromise(0, 1, {
-      duration: returnDuration,
-      ease: [0.645, 0.045, 0.355, 1],
-      onUpdate: (latest) => {
-        if (!isMountedRef.current) return;
-        setDeleteOverridePos({
-          x: currentX + (homeX - currentX) * latest,
-          y: currentY + (homeY - currentY) * latest
-        });
-      }
-    });
 
     if (!isMountedRef.current) return;
 
@@ -518,6 +490,7 @@ export default function ByteWelcomeGuide({
     const origPos = { x: rect.left, y: rect.top };
     savedPositionRef.current = origPos;
     setOriginalPosition(origPos);
+    setUndoOverridePos(origPos); // Keep Byte at home
 
     // 1. Notice the undo request
     setUndoState("noticing");
@@ -528,128 +501,48 @@ export default function ByteWelcomeGuide({
 
     if (!isMountedRef.current) return;
 
-    // 2. Walk to the center of the sidebar
-    setUndoState("go_to_center");
-    const startX = rect.left;
-    const startY = rect.top;
-    const centerTargetX = 160 - 47.5;
-    const centerTargetY = window.innerHeight / 2 - 70;
-
-    const durationCenter = getVelocityDuration(startX, startY, centerTargetX, centerTargetY, 1200);
-
-    setUndoOverridePos(origPos);
-
-    await animatePromise(0, 1, {
-      duration: durationCenter,
-      ease: [0.645, 0.045, 0.355, 1], // easeInOutCubic
-      onUpdate: (latest) => {
-        if (!isMountedRef.current) return;
-        setUndoOverridePos({
-          x: startX + (centerTargetX - startX) * latest,
-          y: startY + (centerTargetY - startY) * latest,
-        });
-      }
-    });
-
-    if (!isMountedRef.current) return;
-
-    // 3. Open the vacuum compartment
+    // 2. Open vacuum compartment and steam puff at home
     setUndoState("opening_compartment");
-    
-    // 4. Steam puff animation
-    const byteX = centerTargetX;
-    const byteY = centerTargetY;
-    spawnSteamPuff(47.5, 85);
+    spawnSteamPuff(origPos.x + 47.5, origPos.y + 85);
     playSound("vacuum");
-
     await new Promise((resolve) => setTimeout(resolve, 300));
+
     if (!isMountedRef.current) return;
 
-    // 5. POP effect & pop out clone
+    // 3. Pop out clone at Byte's vacuum position
     playSound("pop");
-
-    const cloneX = byteX + 47.5 - 110;
-    const cloneY = byteY + 85 - 22;
+    const cloneX = origPos.x + 47.5 - 110;
+    const cloneY = origPos.y + 85 - 22;
     createPopOutClone(chatId, title, cloneX, cloneY);
 
     const cloneEl = document.getElementById("chat-undo-clone-" + chatId);
-    if (cloneEl) {
-      animate(cloneEl, {
-        top: cloneY - 40,
-        scale: 1,
-        opacity: 1,
-        rotate: [-10, 10, 0],
-      }, {
-        duration: 0.45,
-        ease: "easeOut",
-      });
-    }
-
-    // Byte catches it
-    setUndoState("catching_chat");
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    if (!isMountedRef.current) return;
-
-    // 6. Walk to Recent Chats section (origCoords)
-    setUndoState("go_to_chat");
-    const currentX = centerTargetX;
-    const currentY = centerTargetY;
     
-    const destX = origCoords.x - 47.5 + 40;
-    const destY = origCoords.y - 120;
-
-    const durationDest = getVelocityDuration(currentX, currentY, destX, destY, 1200);
-
-    const cloneStartTop = cloneY - 40;
-    await animatePromise(0, 1, {
-      duration: durationDest,
-      ease: [0.645, 0.045, 0.355, 1],
-      onUpdate: (latest) => {
-        if (!isMountedRef.current) return;
-        const curByteX = currentX + (destX - currentX) * latest;
-        const curByteY = currentY + (destY - currentY) * latest;
-        setUndoOverridePos({ x: curByteX, y: curByteY });
-
-        if (cloneEl) {
-          cloneEl.style.left = (curByteX + 47.5 - 110) + "px";
-          cloneEl.style.top = (cloneStartTop + (destY - currentY) * latest) + "px";
-        }
-      }
-    });
-
-    if (!isMountedRef.current) return;
-
-    // 7. Place chat card
-    setUndoState("placing_chat");
+    // 4. Fly clone card back to its original coords
     if (cloneEl) {
-      animate(cloneEl, {
+      await animate(cloneEl, {
         left: origCoords.x - 110,
         top: origCoords.y - 22,
-        scale: [1, 1.15, 1],
+        scale: 1,
+        opacity: 1,
+        rotate: 0,
       }, {
-        duration: 0.35,
-        ease: "easeOut",
+        duration: 0.6,
+        ease: [0.25, 1, 0.5, 1], // smooth easing
       });
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 350));
     if (!isMountedRef.current) return;
 
-    // 8. Fade clone
-    if (cloneEl) {
-      animate(cloneEl, {
-        opacity: 0,
-      }, {
-        duration: 0.25,
-        onComplete: () => {
-          cloneEl.remove();
-        }
-      });
-    }
-
+    // 5. Restore chat state in database/UI
     DeleteEvents.publish(DeleteEvents.DELETE_CHAT_RESTORED, { chatId });
 
-    // 9. Show speech bubble
+    // 6. Fade out the clone card seamlessly
+    if (cloneEl) {
+      await animate(cloneEl, { opacity: 0 }, { duration: 0.15 });
+      cloneEl.remove();
+    }
+
+    // 7. Celebrate
     setUndoState("celebrating");
     setUndoBubbleActive(true);
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -657,29 +550,7 @@ export default function ByteWelcomeGuide({
 
     if (!isMountedRef.current) return;
 
-    // 10. Walk back home
-    setUndoState("return_home");
-    setIsReturning(true);
-    setCurrentTarget(null);
-
-    const homeX = origPos.x;
-    const homeY = origPos.y;
-    const returnDuration = getVelocityDuration(destX, destY, homeX, homeY, 1200);
-
-    await animatePromise(0, 1, {
-      duration: returnDuration,
-      ease: [0.645, 0.045, 0.355, 1],
-      onUpdate: (latest) => {
-        if (!isMountedRef.current) return;
-        setUndoOverridePos({
-          x: destX + (homeX - destX) * latest,
-          y: destY + (homeY - destY) * latest
-        });
-      }
-    });
-
-    if (!isMountedRef.current) return;
-
+    // Reset state
     setUndoState(null);
     setUndoOverridePos(null);
     savedPositionRef.current = null;
@@ -905,6 +776,265 @@ export default function ByteWelcomeGuide({
     setIsReturning(false);
     isBusyRef.current = false;
     RenameEvents.publish(RenameEvents.COMPLETE);
+  };
+
+  const runSearchIntroSequence = async (coords) => {
+    if (rocketState) {
+      console.log("[Byte] Cancelling rocket sequence to play Search Delivery");
+      setRocketState(null);
+      setRocketOverridePos(null);
+      setRocketTargetPos(null);
+      setRocketSelectedSelector(null);
+      isBusyRef.current = false;
+      setIsBusy(false);
+    }
+
+    if (isBusyRef.current) {
+      if (deleteState || archiveState || renameState || restoreState || undoState || shareState) {
+        console.log("[Byte] Critical state active, delaying Search Delivery");
+        return;
+      }
+      console.log("[Byte] Overriding non-critical busy state for Search Delivery");
+      isBusyRef.current = false;
+      setIsBusy(false);
+    }
+
+    isBusyRef.current = true;
+    setIsBusy(true);
+    setIsReturning(false);
+
+    try {
+      console.log("[SEARCH] Step 7 OK");
+      console.log("[Byte] Starting Search Delivery");
+      setByteState("SEARCH_BAR_DELIVERY");
+
+      // Save starting home coordinates dynamically
+      const element = document.querySelector(".byte-movement-container");
+      const rect = element 
+        ? element.getBoundingClientRect() 
+        : { left: window.innerWidth - 110, top: window.innerHeight - 185 };
+
+      const origPos = { x: rect.left, y: rect.top };
+      savedPositionRef.current = origPos;
+      setOriginalPosition(origPos);
+
+      setSearchCoords(coords);
+      setSearchOverridePos(origPos);
+
+      // State: IDLE
+      setSearchState("IDLE");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (!isMountedRef.current) return;
+
+      // State: LOOK_AT_PLACEHOLDER
+      setSearchState("LOOK_AT_PLACEHOLDER");
+      setSearchNoticeBubble("Looking for the search bar?");
+      setSearchBubbleActive(true);
+      playSound("pop");
+
+      // Wait 800 ms
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      if (!isMountedRef.current) return;
+
+      setSearchNoticeBubble("Here it is!");
+
+      // Wait 800 ms
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      if (!isMountedRef.current) return;
+
+      setSearchBubbleActive(false);
+
+      // State: WALK_TO_SEARCH_POSITION
+      console.log("[SEARCH] Step 8 OK");
+      console.log("[Byte] Walking to search area");
+      setSearchState("WALK_TO_SEARCH_POSITION");
+      const startX = rect.left;
+      const startY = rect.top;
+      const destX = coords.x + coords.width / 2 - 47.5;
+      const destY = coords.y - 140;
+
+      const flyDuration = getVelocityDuration(startX, startY, destX, destY, 1200);
+
+      await animatePromise(0, 1, {
+        duration: flyDuration,
+        ease: [0.645, 0.045, 0.355, 1], // easeInOutCubic
+        onUpdate: (latest) => {
+          if (!isMountedRef.current) return;
+          setSearchOverridePos({
+            x: startX + (destX - startX) * latest,
+            y: startY + (destY - startY) * latest,
+          });
+        }
+      });
+
+      if (!isMountedRef.current) return;
+      console.log("[SEARCH] Step 9 OK");
+
+      // State: OPEN_BACKPACK
+      console.log("[SEARCH] Step 10 OK");
+      console.log("[Byte] Opening backpack");
+      setSearchState("OPEN_BACKPACK");
+      setShowToolBag(true);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      if (!isMountedRef.current) return;
+
+      setBagOpen(true);
+      playSound("vacuum");
+
+      // Emit blue holographic particles
+      const particleInterval = setInterval(() => {
+        if (!isMountedRef.current) return;
+        const bagX = destX + 60;
+        const bagY = destY + 40;
+        setSearchParticles((prev) => [
+          ...prev,
+          {
+            id: Math.random(),
+            startX: bagX + 30,
+            startY: bagY + 20,
+            vx: (Math.random() - 0.5) * 60,
+            vy: -40 - Math.random() * 50,
+            scale: 0.8 + Math.random() * 1.2,
+            size: 3 + Math.random() * 4,
+          }
+        ]);
+      }, 40);
+
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      clearInterval(particleInterval);
+      if (!isMountedRef.current) return;
+
+      // State: PULL_OUT_SEARCHBAR
+      setSearchState("PULL_OUT_SEARCHBAR");
+      setShowMiniBar(true);
+      setMiniBarPos({ x: destX + 60 + 15, y: destY + 40 + 10 });
+
+      // Animate pulling out of the bag to hand
+      await animatePromise(0, 1, {
+        duration: 0.4,
+        ease: "easeOut",
+        onUpdate: (latest) => {
+          if (!isMountedRef.current) return;
+          const bagStartX = destX + 60 + 15;
+          const bagStartY = destY + 40 + 10;
+          const handX = destX - 50;
+          const handY = destY + 40;
+          setMiniBarPos({
+            x: bagStartX + (handX - bagStartX) * latest,
+            y: bagStartY + (handY - bagStartY) * latest,
+          });
+        }
+      });
+
+      setBagOpen(false);
+      setShowToolBag(false);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      if (!isMountedRef.current) return;
+
+      // State: CARRY_SEARCHBAR
+      console.log("[Byte] Carrying search bar");
+      setSearchState("CARRY_SEARCHBAR");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (!isMountedRef.current) return;
+
+      // State: PLACE_SEARCHBAR
+      console.log("[Byte] Placing search bar");
+      setSearchState("PLACE_SEARCHBAR");
+      const placeY = coords.y - 120;
+      
+      await animatePromise(destY, placeY, {
+        duration: 0.5,
+        ease: "easeOut",
+        onUpdate: (latest) => {
+          if (!isMountedRef.current) return;
+          setSearchOverridePos({ x: destX, y: latest });
+          // The bar follows down to place inside the placeholder
+          const ratio = (latest - destY) / (placeY - destY || 1);
+          const curMiniY = (destY + 40) + (coords.y - (destY + 40)) * ratio;
+          setMiniBarPos({
+            x: destX - 50,
+            y: curMiniY,
+          });
+        }
+      });
+
+      if (!isMountedRef.current) return;
+
+      // Place the actual bar (triggers the spring drop/sweep)
+      console.log("[SEARCH] Step 11 OK");
+      SearchEvents.publish(SearchEvents.PLACE_BAR);
+      playSound("pop");
+      setShowMiniBar(false);
+
+      // Wait for the spring drop bounce to settle
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      if (!isMountedRef.current) return;
+
+      // State: POINT_TO_SEARCHBAR
+      setSearchState("POINT_TO_SEARCHBAR");
+      setSearchBubbleActive(true);
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      if (!isMountedRef.current) return;
+
+      // State: SPEAK
+      setSearchState("SPEAK");
+      await new Promise((resolve) => setTimeout(resolve, 1800));
+      if (!isMountedRef.current) return;
+
+      setSearchBubbleActive(false);
+
+      // State: RETURN_HOME
+      console.log("[Byte] Returning home");
+      setSearchState("RETURN_HOME");
+      playSound("pop");
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      if (!isMountedRef.current) return;
+
+      setIsReturning(true);
+      setCurrentTarget(null);
+
+      const returnDuration = getVelocityDuration(destX, placeY, origPos.x, origPos.y, 1200);
+
+      await animatePromise(0, 1, {
+        duration: returnDuration,
+        ease: [0.645, 0.045, 0.355, 1],
+        onUpdate: (latest) => {
+          if (!isMountedRef.current) return;
+          setSearchOverridePos({
+            x: destX + (origPos.x - destX) * latest,
+            y: placeY + (origPos.y - placeY) * latest,
+          });
+        }
+      });
+
+      if (!isMountedRef.current) return;
+      console.log("[SEARCH] Step 12 OK");
+
+      // State: IDLE
+      setSearchState("IDLE");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (!isMountedRef.current) return;
+
+      console.log("[Byte] Animation complete");
+      setHasPlayedSearchDelivery(true);
+    } catch (err) {
+      console.error("[Byte] SEARCH_BAR_DELIVERY animation failed:", err);
+    } finally {
+      // Reset states
+      setSearchState(null);
+      setSearchOverridePos(null);
+      setSearchParticles([]);
+      setSearchNoticeBubble("");
+      savedPositionRef.current = null;
+      setOriginalPosition(null);
+
+      setByteState("IDLE");
+      setIsBusy(false);
+      setIsReturning(false);
+      isBusyRef.current = false;
+      SearchEvents.publish(SearchEvents.COMPLETE);
+      resetRocketTimer();
+    }
   };
 
   // Synchronous share outgoing courier sequence
@@ -1672,6 +1802,19 @@ export default function ByteWelcomeGuide({
       runDeleteSequence(chatId, coords);
     });
 
+    const handleSearchPageOpenedEvent = () => {
+      console.log("[SEARCH] Step 6 OK");
+    };
+    window.addEventListener("SEARCH_PAGE_OPENED", handleSearchPageOpenedEvent);
+
+    const unsubSearchTrigger = SearchEvents.subscribe(SearchEvents.TRIGGER, ({ coords }) => {
+      runSearchIntroSequence(coords);
+    });
+
+    const unsubSearchTyping = SearchEvents.subscribe(SearchEvents.TYPING, ({ isTyping }) => {
+      setIsSearchTyping(isTyping);
+    });
+
     const unsubUndo = DeleteEvents.subscribe(DeleteEvents.DELETE_CHAT_UNDO, (data) => {
       if (data && data.chatId) {
         runUndoSequence(data.chatId, data.title, data.coords);
@@ -1704,23 +1847,7 @@ export default function ByteWelcomeGuide({
       runRenameCancelSequence();
     });
 
-    const unsubShareReady = ShareEvents.subscribe(ShareEvents.SHARE_LINK_READY, ({ shareUrl, shareCoords }) => {
-      // Find current position of Byte
-      const byteEl = document.querySelector(".byte-movement-container");
-      let bytePos = { x: window.innerWidth - 110, y: window.innerHeight - 180 };
-      if (byteEl) {
-        const rect = byteEl.getBoundingClientRect();
-        bytePos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-      }
 
-      // Play noticing, materialize, and throw animation. Once thrown, publish ENVELOPE_THROWN event
-      runShareSequence(shareCoords, () => {
-        ShareEvents.publish(ShareEvents.ENVELOPE_THROWN, {
-          byteCoords: bytePos,
-          shareUrl,
-        });
-      });
-    });
 
     const unsubShareLand = ShareEvents.subscribe(ShareEvents.LAND_ANIMATION, ({ onUnfold }) => {
       runShareLandSequence(onUnfold);
@@ -1738,11 +1865,14 @@ export default function ByteWelcomeGuide({
     });
 
     return () => {
+      window.removeEventListener("SEARCH_PAGE_OPENED", handleSearchPageOpenedEvent);
       unsubBytePos();
       unsubTrigger();
       unsubRopeDropped();
       unsubThemeChanged();
       unsubDelete();
+      unsubSearchTrigger();
+      unsubSearchTyping();
       unsubUndo();
       unsubTimeout();
       unsubArchive();
@@ -1750,7 +1880,7 @@ export default function ByteWelcomeGuide({
       unsubRenameTrigger();
       unsubRenameConfirm();
       unsubRenameCancel();
-      unsubShareReady();
+
       unsubShareLand();
       unsubShareFailure();
       unsubShareReturn();
@@ -1923,7 +2053,7 @@ export default function ByteWelcomeGuide({
   useEffect(() => {
     const handleActivity = () => {
       lastActivityRef.current = Date.now();
-      if (!isBusyRef.current && !welcomeActive && !isGenerating && !rocketState) {
+      if (!isBusyRef.current && !welcomeActive && !isGenerating && !rocketState && byteState !== "SEARCH_BAR_DELIVERY") {
         resetRocketTimer();
       }
     };
@@ -1940,7 +2070,7 @@ export default function ByteWelcomeGuide({
       window.removeEventListener("click", handleActivity);
       if (rocketTimerRef.current) clearTimeout(rocketTimerRef.current);
     };
-  }, [welcomeActive, isGenerating, rocketState]);
+  }, [welcomeActive, isGenerating, rocketState, byteState]);
 
   const resetRocketTimer = () => {
     if (rocketTimerRef.current) {
@@ -1948,7 +2078,7 @@ export default function ByteWelcomeGuide({
     }
     const delay = 22000 + Math.random() * 6000; // 22–28 seconds
     rocketTimerRef.current = setTimeout(() => {
-      if (!isBusyRef.current && !welcomeActive && !isGenerating && !rocketState) {
+      if (!isBusyRef.current && !welcomeActive && !isGenerating && !rocketState && byteState !== "SEARCH_BAR_DELIVERY") {
         const timeSinceLastActivity = Date.now() - lastActivityRef.current;
         if (timeSinceLastActivity >= 20000) {
           triggerRocketSequence();
@@ -2202,8 +2332,9 @@ export default function ByteWelcomeGuide({
 
       const startX = origPos.x;
       const startY = origPos.y;
-      const destX = targetPos.x - 47.5;
-      const destY = targetPos.y - 45; // fly centered to icon
+      const byteSizeVal = window.innerWidth <= 768 ? 65 : 95;
+      const destX = targetPos.x - (byteSizeVal / 2);
+      const destY = targetPos.y - (byteSizeVal / 2); // fly centered to icon
 
       const midX = (startX + destX) / 2;
       const controlX = midX + (startY - destY) * 0.25 + (Math.random() - 0.5) * 80;
@@ -3059,11 +3190,45 @@ export default function ByteWelcomeGuide({
   };
 
   // Determine actual state and expression for the robot
-  let robotState = welcomeActive ? "float" : byteState;
-  let finalExpression = expression;
-  let finalGesture = welcomeActive ? gesture : "none";
+  let robotState = welcomeActive 
+    ? (welcomeState === "moving_in" ? "wave" : "float") 
+    : byteState;
+  let finalExpression = welcomeState === "moving_in" ? "happy" : expression;
+  let finalGesture = welcomeActive 
+    ? (welcomeState === "moving_in" ? "wave" : gesture) 
+    : "none";
 
-  if (rocketState) {
+  if (searchState) {
+    robotState = (searchState === "POINT_TO_SEARCHBAR" || searchState === "SPEAK" || searchState === "LOOK_AT_PLACEHOLDER" || searchState === "IDLE") ? "idle" : "float";
+    if (searchState === "IDLE") {
+      finalExpression = "happy";
+      finalGesture = "none";
+    } else if (searchState === "LOOK_AT_PLACEHOLDER") {
+      finalExpression = "surprised";
+      finalGesture = "none";
+    } else if (searchState === "WALK_TO_SEARCH_POSITION") {
+      finalExpression = "happy";
+      finalGesture = "none";
+    } else if (searchState === "OPEN_BACKPACK") {
+      finalExpression = "focused";
+      finalGesture = "reach-up";
+    } else if (searchState === "PULL_OUT_SEARCHBAR") {
+      finalExpression = "surprised";
+      finalGesture = "reach-up";
+    } else if (searchState === "CARRY_SEARCHBAR" || searchState === "PLACE_SEARCHBAR") {
+      finalExpression = "happy";
+      finalGesture = "reach-up";
+    } else if (searchState === "POINT_TO_SEARCHBAR" || searchState === "SPEAK") {
+      finalExpression = "happy";
+      finalGesture = "point-left";
+    } else if (searchState === "RETURN_HOME") {
+      finalExpression = "happy";
+      finalGesture = "wave";
+    } else {
+      finalExpression = "happy";
+      finalGesture = "none";
+    }
+  } else if (rocketState) {
     const isL = (rocketTargetPos && originalPosition) ? (rocketTargetPos.x < originalPosition.x) : true;
     const directionClass = isL ? "preflight-left" : "preflight-right";
     robotState = (rocketState === "igniting" || rocketState === "flying" || rocketState === "carrying" || rocketState === "returning_icon" || rocketState === "flying_home")
@@ -3229,48 +3394,64 @@ export default function ByteWelcomeGuide({
       finalExpression = "happy";
     }
   }
-  // Override coordinates when interacting with the rope, deleting, archiving, renaming, or restoring chats
-  const overridePositionToUse = shareEnvelopePos
-    ? shareEnvelopePos
-    : (ropeState
-        ? ropeOverridePos
-        : (deleteState 
-            ? deleteOverridePos 
-            : (archiveState 
-                ? archiveOverridePos 
-                : (renameState 
-                    ? renameOverridePos 
-                    : (restoreState 
-                        ? restoreOverridePos 
-                        : (undoState
-                            ? undoOverridePos
-                            : (shareState
-                                ? shareOverridePos
-                                : (rocketState
-                                    ? rocketOverridePos
-                                    : overridePosition))))))));
 
-  const bubbleTextToUse = restoreBubble 
-    ? "Restored!" 
-    : (deleteBubbleActive 
-        ? "Stored safely!" 
-        : (undoBubbleActive 
-            ? "Saved it just in time!" 
-            : (recycledBubbleActive 
-                ? "Recycled!" 
-                : (shareBubbleActive
-                     ? "Message delivered!"
-                     : (shareEnvelopeSuccessBubble
-                          ? "Delivered successfully!"
-                          : (shareFailureBubble
-                              ? "I couldn't prepare your letter."
-                              : (shareCloseBubble
-                                  ? "Your message is ready to send."
-                                  : bubbleText)))))));
+  // Smile override when typing!
+  if (isSearchTyping) {
+    finalExpression = "happy";
+  }
+
+  // Override coordinates when interacting with the rope, deleting, archiving, renaming, or restoring chats
+  const overridePositionToUse = namingActive
+    ? namingPlaceholderPos
+    : (shareEnvelopePos
+        ? shareEnvelopePos
+        : (searchState
+            ? searchOverridePos
+            : (ropeState
+                ? ropeOverridePos
+                : (deleteState 
+                    ? deleteOverridePos 
+                    : (archiveState 
+                        ? archiveOverridePos 
+                        : (renameState 
+                            ? renameOverridePos 
+                            : (restoreState 
+                                ? restoreOverridePos 
+                                : (undoState
+                                    ? undoOverridePos
+                                    : (shareState
+                                        ? shareOverridePos
+                                        : (rocketState
+                                            ? rocketOverridePos
+                                            : overridePosition))))))))));
+
+  const bubbleTextToUse = (searchBubbleActive && (searchState === "POINT_TO_SEARCHBAR" || searchState === "SPEAK"))
+    ? (searchState === "POINT_TO_SEARCHBAR" ? "Here you go!" : "Now you can search your chats!")
+    : (searchBubbleActive && searchNoticeBubble
+        ? searchNoticeBubble
+        : (restoreBubble 
+            ? "Restored!" 
+            : (deleteBubbleActive 
+                ? "Stored safely!" 
+                : (undoBubbleActive 
+                    ? "Saved it just in time!" 
+                    : (recycledBubbleActive 
+                        ? "Recycled!" 
+                        : (shareBubbleActive
+                             ? "Message delivered!"
+                             : (shareEnvelopeSuccessBubble
+                                  ? "Delivered successfully!"
+                                  : (shareFailureBubble
+                                      ? "I couldn't prepare your letter."
+                                      : (shareCloseBubble
+                                          ? "Your message is ready to send."
+                                          : bubbleText)))))))));
 
   const shouldShowBubble = 
-    (showBubble && !ropeState && !deleteState && !archiveState && !renameState && !restoreState && !undoState && !shareState && typeof bubbleText === "string" && bubbleText.trim() !== "") ||
-    restoreBubble || deleteBubbleActive || undoBubbleActive || recycledBubbleActive || shareBubbleActive || shareFailureBubble || shareCloseBubble || shareEnvelopeSuccessBubble;
+    !namingActive && (
+      (showBubble && !searchState && !ropeState && !deleteState && !archiveState && !renameState && !restoreState && !undoState && !shareState && typeof bubbleText === "string" && bubbleText.trim() !== "") ||
+      searchBubbleActive || restoreBubble || deleteBubbleActive || undoBubbleActive || recycledBubbleActive || shareBubbleActive || shareFailureBubble || shareCloseBubble || shareEnvelopeSuccessBubble
+    );
 
   const [bubblePlacement, setBubblePlacement] = useState("left");
 
@@ -3579,6 +3760,7 @@ export default function ByteWelcomeGuide({
         onPointerDown={() => {
           if (welcomeActive) cancelWelcome();
         }}
+        smoothOverride={namingActive}
       >
       <div 
         className={deleteState === "vacuuming" ? "byte-pulling-jitter" : ""}
@@ -3597,12 +3779,30 @@ export default function ByteWelcomeGuide({
           transition: rocketState === "igniting" ? "none" : "transform 0.25s ease-out"
         }}
       >
-        <ByteRobot
-          size={95}
-          state={robotState}
-          expression={finalExpression}
-          gesture={finalGesture}
-        />
+        <motion.div
+          animate={
+            namingActive
+              ? (namingJumpActive
+                  ? { y: [0, -45, 0], scaleY: [1, 0.82, 1.15, 1] }
+                  : { rotate: namingTilt })
+              : {}
+          }
+          transition={
+            namingActive && namingJumpActive
+              ? { duration: 0.55, ease: "easeInOut" }
+              : { duration: 0.3 }
+          }
+          style={{ zIndex: 5, display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <ByteRobot
+            size={window.innerWidth <= 768 ? (namingActive ? 85 : 65) : (namingActive ? 100 : 95)}
+            state={namingActive ? namingRobotState : robotState}
+            expression={namingActive ? namingExpression : finalExpression}
+            gesture={namingActive ? namingGesture : finalGesture}
+            lookOffset={namingActive ? namingLookOffset : undefined}
+            onHomeScreen={!activeChatId}
+          />
+        </motion.div>
 
         {/* Holographic Envelope for sharing */}
         <AnimatePresence>
@@ -3895,6 +4095,102 @@ export default function ByteWelcomeGuide({
               boxShadow: `0 0 6px ${p.color}`,
               pointerEvents: "none",
               zIndex: 99,
+            }}
+          />
+        ))}
+
+        {/* Futuristic Tool Bag Overlay */}
+        <AnimatePresence>
+          {showToolBag && (
+            <motion.div
+              initial={{ scale: 0, opacity: 0, x: (searchOverridePos?.x ?? 0) + 60, y: (searchOverridePos?.y ?? 0) + 40 }}
+              animate={{ scale: 1, opacity: 1, x: (searchOverridePos?.x ?? 0) + 60, y: (searchOverridePos?.y ?? 0) + 40 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 200, damping: 20 }}
+              style={{
+                position: "fixed",
+                zIndex: 99998,
+                pointerEvents: "none",
+              }}
+            >
+              <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+                <rect x="5" y="15" width="50" height="40" rx="12" fill={darkMode ? "rgba(30, 41, 59, 0.85)" : "rgba(255, 255, 255, 0.85)"} stroke="#79f8ff" strokeWidth="2.5" style={{ backdropFilter: "blur(8px)" }} />
+                <path d="M 15 15 L 15 5 C 15 3, 45 3, 45 5 L 45 15" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" />
+                <line x1="20" y1="35" x2="40" y2="35" stroke="#79f8ff" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="30" cy="35" r="4" fill="#79f8ff" />
+                <motion.path
+                  d="M 5 25 L 55 25"
+                  stroke="#79f8ff"
+                  strokeWidth="3"
+                  style={{ originX: 0.5, originY: 0.5 }}
+                  animate={bagOpen ? { rotateX: -60, y: -5 } : { rotateX: 0, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                />
+              </svg>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Mini Search Bar Object Overlay */}
+        <AnimatePresence>
+          {showMiniBar && (
+            <motion.div
+              initial={{
+                x: (searchOverridePos?.x ?? 0) + 60 + 15,
+                y: (searchOverridePos?.y ?? 0) + 40 + 10,
+                scale: 0.1,
+                opacity: 0,
+              }}
+              animate={{
+                x: miniBarPos.x,
+                y: miniBarPos.y,
+                scale: 0.4,
+                opacity: 0.9,
+              }}
+              exit={{ scale: 0, opacity: 0 }}
+              style={{
+                position: "fixed",
+                width: 200,
+                height: 44,
+                borderRadius: 12,
+                background: "rgba(121, 248, 255, 0.25)",
+                border: "2px solid #79f8ff",
+                boxShadow: "0 0 15px rgba(121, 248, 255, 0.5)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#79f8ff",
+                fontWeight: "bold",
+                zIndex: 99999,
+                pointerEvents: "none",
+              }}
+            >
+              <span style={{ marginRight: 8 }}>🔍</span> Search
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Holographic Blue Particles */}
+        {searchParticles.map((p) => (
+          <motion.div
+            key={p.id}
+            initial={{ x: p.startX, y: p.startY, opacity: 1, scale: p.scale }}
+            animate={{
+              x: p.startX + p.vx,
+              y: p.startY + p.vy,
+              opacity: 0,
+              scale: 0.1,
+            }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            style={{
+              position: "fixed",
+              width: p.size,
+              height: p.size,
+              borderRadius: "50%",
+              backgroundColor: "#79f8ff",
+              boxShadow: "0 0 8px #79f8ff",
+              zIndex: 99999,
+              pointerEvents: "none",
             }}
           />
         ))}

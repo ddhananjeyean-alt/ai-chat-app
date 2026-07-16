@@ -31,7 +31,7 @@ export default function ByteIntro({ mode = "login" }) {
           setBubbleTitle("👋 Hi!");
           setBubbleTitleColor("#79F8FF");
           setBubbleText(
-            "I'm Byte, your AI Chat Assistant. I'll help you with whatever you need."
+            "I am your AI chat assistant.\nI'm here to help you answer questions, create images, write code, and much more."
           );
           setShowBubble(true);
         }, 2500)
@@ -77,6 +77,18 @@ export default function ByteIntro({ mode = "login" }) {
           setBubbleText("Great! Your account is ready.\nPlease log in.");
           setShowBubble(true);
         }, 500)
+      );
+    } else if (mode === "login_success") {
+      setRobotState("happy"); // Celebrate login!
+      setShowBubble(false);
+
+      timers.push(
+        setTimeout(() => {
+          setBubbleTitle("🎉 Logged In!");
+          setBubbleTitleColor("#10B981"); // Success green
+          setBubbleText("Let's get started!");
+          setShowBubble(true);
+        }, 300)
       );
     }
 
@@ -176,6 +188,7 @@ export default function ByteIntro({ mode = "login" }) {
         <ByteRobot
           size={95}
           state={robotState}
+          onHomeScreen={false}
         />
       </motion.div>
     </Box>

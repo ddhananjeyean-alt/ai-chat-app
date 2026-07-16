@@ -1,58 +1,4 @@
-import ai from "./gemini";
-
-const PRIMARY_MODEL = "gemini-2.5-flash";
-const FALLBACK_MODEL = "gemini-1.5-pro";
-const TRANSIENT_STATUS_CODES = [429, 500, 503];
-const RETRY_DELAYS_MS = [1000, 2000, 4000];
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function getStatusCode(error) {
-  if (!error) return null;
-  if (typeof error.status === "number") return error.status;
-  if (error.response?.status) return error.response.status;
-  if (error?.response?.statusCode) return error.response.statusCode;
-  const codeMatch = String(error.message || "").match(/\b(429|500|503)\b/);
-  return codeMatch ? Number(codeMatch[1]) : null;
-}
-
-function isTransientError(error) {
-  const status = getStatusCode(error);
-  if (status && TRANSIENT_STATUS_CODES.includes(status)) {
-    return true;
-  }
-
-  if (error?.code === "ECONNRESET" || error?.code === "ETIMEDOUT" || error?.code === "EAI_AGAIN") {
-    return true;
-  }
-
-  const message = String(error?.message || "").toLowerCase();
-  return message.includes("503") || message.includes("429") || message.includes("500") || message.includes("busy");
-}
-
-async function generateImageAnalysis(model, imageBase64, prompt, mimeType) {
-  return ai.models.generateContent({
-    model,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              mimeType,
-              data: imageBase64,
-            },
-          },
-          {
-            text: prompt,
-          },
-        ],
-      },
-    ],
-  });
-}
+import { aiEngine } from "../ai/AIEngine";
 
 export async function analyzeImage(
   imageBase64,
@@ -60,37 +6,29 @@ export async function analyzeImage(
   mimeType = "image/jpeg",
   onRetry = () => {}
 ) {
-  const modelCandidates = [PRIMARY_MODEL, FALLBACK_MODEL];
-  let lastError = null;
+  try {
+    return await aiEngine.analyzeImage(imageBase64, prompt, mimeType, {
+      systemPrompt: `You are an expert visual analysis, handwriting recognition, and multilingual OCR AI.
+You must analyze the uploaded image and structure your response into exactly four sections, using these exact headings:
 
-  for (const model of modelCandidates) {
-    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
-      try {
-        const response = await generateImageAnalysis(model, imageBase64, prompt, mimeType);
-        return response?.text || response?.outputText || "Image analysis completed with no text output.";
-      } catch (error) {
-        lastError = error;
-        const retryNumber = attempt + 1;
-        const status = getStatusCode(error);
-        const transient = isTransientError(error);
+### 1. Description
+Provide a detailed description of the visuals, scene, entities, layout, or diagrams in the image.
 
-        if (!transient || attempt === RETRY_DELAYS_MS.length) {
-          break;
-        }
+### 2. Extracted Text
+Perform a transcription of all text present in the image (both typed/printed text and handwritten text).
+- Support English, Tamil (தமிழ்), Hindi (हिन्दी), Japanese (日本語), Arabic (العربية), and mixed-language images.
+- Always output text in its original native script/characters (do not transliterate or Romanize).
+- If handwriting is detected, carefully transcribe the letters/scripts. If confidence is low or characters are illegible, use "[illegible]" or "[unclear]" and state: "Handwriting recognition confidence is low. Some parts may be illegible."
+- Never hallucinate or guess text.
 
-        const retryMessage = "Gemini is busy, retrying...";
-        console.warn(retryMessage, { model, attempt: retryNumber, status, error });
-        onRetry(retryMessage, { model, attempt: retryNumber, status });
-        await sleep(RETRY_DELAYS_MS[attempt]);
-      }
-    }
+### 3. Detected Languages
+List all languages identified in the image (e.g. English, Tamil, Hindi, Japanese, Arabic, etc.).
 
-    if (model === PRIMARY_MODEL) {
-      console.warn("Primary Gemini model failed, falling back to secondary model.");
-      onRetry("Gemini primary model failed, trying a fallback model.", { model });
-    }
+### 4. Answer to the User's Question
+Provide a clear, direct answer to the user's question: "${prompt}" based on your visual understanding and extracted text.`
+    });
+  } catch (error) {
+    console.error("Image analysis client error:", error);
+    return "⚠️ Image analysis temporarily unavailable. Please try again later.";
   }
-
-  console.error("Gemini image analysis failed after retries:", lastError);
-  return "Image analysis temporarily unavailable. Please try again later.";
 }

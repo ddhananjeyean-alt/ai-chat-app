@@ -237,6 +237,7 @@
   transform-box: fill-box;
   transform-origin: center;
   animation: byteEyeSpin 2s linear infinite;
+  will-change: transform;
 }
 
 @keyframes byteEyeSpin {
@@ -444,5 +445,45 @@
 
 .byte.idle {
   animation: byteFloat 3.8s ease-in-out infinite;
+}
+
+/* Waving container animates float base */
+.byte.wave {
+  animation: byteFloat 3.8s ease-in-out infinite;
+}
+
+/* Chest breathing animation */
+.byte-body-group {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: byteBreath 4.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes byteBreath {
+  0%, 100% {
+    transform: scaleY(1) translateY(0);
+  }
+  50% {
+    transform: scaleY(0.96) scaleX(1.025) translateY(1.5px);
+  }
+}
+
+/* Reduced Motion Safety */
+@media (prefers-reduced-motion: reduce) {
+  .byte,
+  .byte *,
+  .byte-body-group,
+  .rocket-flame-left,
+  .rocket-flame-right,
+  .byte-wave-bar-1,
+  .byte-wave-bar-2,
+  .byte-scan-line,
+  .byte-searching-orbit,
+  .byte-spin-eye,
+  .byte-arrow-bounce {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 

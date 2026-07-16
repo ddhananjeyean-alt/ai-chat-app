@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import { useAuth } from "./AuthContext";
 
 const ByteContext = createContext();
 
@@ -12,6 +13,7 @@ export const BYTE_STATES = {
   LISTENING: "LISTENING",
   SUCCESS: "SUCCESS",
   ERROR: "ERROR",
+  SEARCH_BAR_DELIVERY: "SEARCH_BAR_DELIVERY",
 };
 
 const THINKING_PHRASES = [
@@ -31,12 +33,45 @@ export function ByteProvider({ children }) {
   // Global AI processing state
   const [byteState, setByteStateInternal] = useState(BYTE_STATES.IDLE);
   
+  // Search Delivery played state
+  const [hasPlayedSearchDelivery, setHasPlayedSearchDelivery] = useState(false);
+  const { currentUser, updateCompanionDisplayName } = useAuth();
+  const prevUserRef = useRef(currentUser);
+
+  const [displayName, setDisplayName] = useState("My Companion");
+
+  useEffect(() => {
+    if (currentUser) {
+      const name = currentUser.companionDisplayName || localStorage.getItem(`companionName_${currentUser.uid}`) || "My Companion";
+      setDisplayName(name);
+    } else {
+      setDisplayName("My Companion");
+    }
+  }, [currentUser, currentUser?.companionDisplayName]);
+
+  useEffect(() => {
+    if (currentUser !== prevUserRef.current) {
+      setHasPlayedSearchDelivery(false);
+      prevUserRef.current = currentUser;
+    }
+  }, [currentUser]);
+  
   // Custom bubble text and visibility
   const [bubbleText, setBubbleText] = useState("");
   
   // Welcome onboarding flow state
   const [welcomeState, setWelcomeState] = useState("idle"); // idle, waiting, moving_in, talking, moving_out, completed
   const [targetPosition, setTargetPosition] = useState({ x: 0, y: 0 });
+
+  // Naming dialog companion states
+  const [namingActive, setNamingActive] = useState(false);
+  const [namingPlaceholderPos, setNamingPlaceholderPos] = useState(null);
+  const [namingRobotState, setNamingRobotState] = useState("float");
+  const [namingExpression, setNamingExpression] = useState("happy");
+  const [namingGesture, setNamingGesture] = useState("none");
+  const [namingTilt, setNamingTilt] = useState(0);
+  const [namingLookOffset, setNamingLookOffset] = useState({ x: 0, y: 0 });
+  const [namingJumpActive, setNamingJumpActive] = useState(false);
 
   // Global companion navigation states
   const [isBusy, setIsBusy] = useState(false);
@@ -51,8 +86,15 @@ export function ByteProvider({ children }) {
 
   // Calculate coordinates dynamically to be next to the chat input box
   const updateTargetCoordinates = useCallback(() => {
+    const inputEl = document.querySelector(".chat-input-area-wrapper");
     const targetX = window.innerWidth - 110;
-    const targetY = window.innerHeight - 185;
+    let targetY;
+    if (inputEl) {
+      const rect = inputEl.getBoundingClientRect();
+      targetY = Math.max(20, rect.top - 140);
+    } else {
+      targetY = window.innerHeight - 250;
+    }
     setTargetPosition({ x: targetX, y: targetY });
   }, []);
 
@@ -271,7 +313,10 @@ export function ByteProvider({ children }) {
   const gesture = byteState === BYTE_STATES.IDLE && welcomeState === "talking" ? "point-left" : "none";
 
   // Provide state mapping values
-  const defaultWelcomeText = `Hi! 👋\nI'm Byte, your AI companion.\nI'm here to help you with anything you need.`;
+  const isReturningUser = currentUser && (currentUser.companionDisplayName || localStorage.getItem(`companionName_${currentUser.uid}`));
+  const defaultWelcomeText = isReturningUser 
+    ? `Welcome back!\nIt's great to see you again.` 
+    : `Hi! 👋\nI'm ${displayName}, your AI companion.\nI'm here to help you with anything you need.`;
   const activeBubbleText = showProcessingBubble ? bubbleText : (showWelcomeBubble ? defaultWelcomeText : "");
 
   return (
@@ -299,6 +344,26 @@ export function ByteProvider({ children }) {
         setIsReturning,
         originalPosition,
         setOriginalPosition,
+        hasPlayedSearchDelivery,
+        setHasPlayedSearchDelivery,
+        displayName,
+        updateCompanionDisplayName,
+        namingActive,
+        setNamingActive,
+        namingPlaceholderPos,
+        setNamingPlaceholderPos,
+        namingRobotState,
+        setNamingRobotState,
+        namingExpression,
+        setNamingExpression,
+        namingGesture,
+        setNamingGesture,
+        namingTilt,
+        setNamingTilt,
+        namingLookOffset,
+        setNamingLookOffset,
+        namingJumpActive,
+        setNamingJumpActive,
       }}
     >
       {children}

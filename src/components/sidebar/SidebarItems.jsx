@@ -17,6 +17,7 @@ const SidebarItem = React.memo(({
   item,
   x,
   y,
+  d,
   active,
   onClick,
   onContextMenu,
@@ -40,21 +41,26 @@ const SidebarItem = React.memo(({
     ? (isLight ? `0 0 20px ${theme.palette.primary.light}` : "0 0 20px rgba(116,220,255,0.5)") 
     : "none";
 
+  const targetOpacity = Math.max(0, 1 - Math.abs(d) * 0.25);
+  const targetScale = active ? 1.15 : Math.max(0.7, 1 - Math.abs(d) * 0.08);
+  const targetBlur = Math.min(8, Math.abs(d) * 1.5);
+
   const itemContent = (
     <motion.div
       id={`chat-wheel-item-${item.id}`}
       animate={{
         x: x - 22,
         y: y - 22,
-        scale: active ? 1.15 : 1,
-        opacity: active ? 1 : 0.7,
+        scale: targetScale,
+        opacity: targetOpacity,
+        filter: `blur(${targetBlur}px)`,
       }}
       transition={{
         type: "spring",
         stiffness: 260,
         damping: 24,
       }}
-      whileHover={{ scale: 1.15 }}
+      whileHover={{ scale: active ? 1.15 : 1.05 }}
       whileTap={{ scale: 0.95 }}
       style={{
         position: "absolute",
@@ -62,7 +68,7 @@ const SidebarItem = React.memo(({
         top: 0,
         width: 44,
         height: 44,
-        pointerEvents: isHidden ? "none" : "auto",
+        pointerEvents: (isHidden || targetOpacity < 0.1) ? "none" : "auto",
         cursor: "pointer",
         userSelect: "none",
         visibility: isHidden ? "hidden" : "visible",
@@ -159,6 +165,16 @@ export default function SidebarItems({
   pendingDeleteId = null,
   pendingArchiveId = null,
 }) {
+  const ITEM_SPACING = 26;
+
+  // Find index of the currently active item
+  const activeIdx = items.findIndex((item) => item.id === activeItem);
+  const centerIdx = activeIdx !== -1 ? activeIdx : 0;
+
+  // Filter items to render only the visible ones (window of size 17)
+  const visibleItemsWithIndices = items
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ idx }) => Math.abs(idx - centerIdx) <= 8);
 
   return (
     <div
@@ -172,7 +188,7 @@ export default function SidebarItems({
         pointerEvents: "none",
       }}
     >
-      {items.map((item) => {
+      {visibleItemsWithIndices.map(({ item, idx }) => {
         // Compute item angle dynamically including the parent rotation angle
         const angle = (item.angle + rotation) * (Math.PI / 180);
 
@@ -180,15 +196,19 @@ export default function SidebarItems({
         const x = WHEEL_RADIUS + LABEL_RADIUS * Math.cos(angle);
         const y = WHEEL_RADIUS + LABEL_RADIUS * Math.sin(angle);
 
+        // Calculate continuous offset d for smooth animations
+        const d = (item.angle + rotation) / ITEM_SPACING;
+
         const active = activeItem === item.id;
         const isHidden = pendingDeleteId === item.id || pendingArchiveId === item.id;
 
         return (
           <SidebarItem
-            key={item.id} // Stable unique ID (Search or Chat ID)
+            key={item.id}
             item={item}
             x={x}
             y={y}
+            d={d}
             active={active}
             onClick={() => onSelect?.(item.id)}
             onContextMenu={(e) => {

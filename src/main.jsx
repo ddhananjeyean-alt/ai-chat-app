@@ -25,7 +25,7 @@ import { ThemeProvider, useThemeContext } from "./theme/ThemeContext";
 // Authentication
 import { AuthProvider } from "./context/AuthContext";
 import { ByteProvider } from "./context/ByteContext";
-import { msalInstance } from "./auth/msalInstance";
+import { msalInstance, initializeMsal } from "./auth/msalInstance";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 
@@ -33,7 +33,6 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import App from "./App";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
-import Register from "./auth/Register";
 import SharedChat from "./pages/SharedChat";
 
 function AppWithTheme() {
@@ -46,7 +45,6 @@ function AppWithTheme() {
       <Routes>
         {/* Authentication */}
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
 
         {/* Protected AI Chat */}
         <Route
@@ -69,28 +67,33 @@ function AppWithTheme() {
 
         {/* Public Shared Chat */}
         <Route path="/share/:id" element={<SharedChat />} />
+
+        {/* Wildcard Fallback Route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </MuiThemeProvider>
   );
 }
 
 // Initialize MSAL before rendering the application (Required by MSAL Browser v3)
-msalInstance.initialize().then(() => {
-  ReactDOM.createRoot(document.getElementById("root")).render(
-    <React.StrictMode>
-      <ErrorBoundary>
-        <BrowserRouter>
-          <AuthProvider>
-            <ByteProvider>
-              <ThemeProvider>
-                <AppWithTheme />
-              </ThemeProvider>
-            </ByteProvider>
-          </AuthProvider>
-        </BrowserRouter>
-      </ErrorBoundary>
-    </React.StrictMode>
-  );
-}).catch((error) => {
-  console.error("Failed to initialize MSAL instance:", error);
-});
+initializeMsal()
+  .then(() => {
+    ReactDOM.createRoot(document.getElementById("root")).render(
+      <React.StrictMode>
+        <ErrorBoundary>
+          <BrowserRouter>
+            <AuthProvider>
+              <ByteProvider>
+                <ThemeProvider>
+                  <AppWithTheme />
+                </ThemeProvider>
+              </ByteProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </ErrorBoundary>
+      </React.StrictMode>
+    );
+  })
+  .catch((error) => {
+    console.error("Failed to initialize MSAL instance:", error);
+  });

@@ -8,15 +8,22 @@ export default function ByteMovement({
   onStateChange,
   overridePosition,
   onPointerDown,
+  smoothOverride,
 }) {
   const robotRef = useRef(null);
   const walkTimer = useRef(null);
 
+  const isMobile = window.innerWidth <= 768;
   const HOME_X =
-    initialX ?? Math.max(20, window.innerWidth - 130);
+    initialX ?? Math.max(20, window.innerWidth - (isMobile ? 95 : 130));
+
+  const clamp = (value, min, max) =>
+    Math.max(min, Math.min(value, max));
+
+  const [maxAllowedY, setMaxAllowedY] = useState(window.innerHeight - (isMobile ? 150 : 200));
 
   const HOME_Y =
-    initialY ?? Math.max(20, window.innerHeight - 180);
+    initialY ?? clamp(window.innerHeight - (isMobile ? 150 : 220), 20, maxAllowedY);
 
   const [position, setPosition] = useState({
     x: HOME_X,
@@ -30,9 +37,6 @@ export default function ByteMovement({
     x: 0,
     y: 0,
   });
-
-  const clamp = (value, min, max) =>
-    Math.max(min, Math.min(value, max));
 
   const handlePointerDown = (event) => {
     event.preventDefault();
@@ -55,14 +59,45 @@ export default function ByteMovement({
   };
 
   useEffect(() => {
+    const updateBounds = () => {
+      const inputEl = document.querySelector(".chat-input-area-wrapper");
+      const height = robotRef.current?.offsetHeight || (isMobile ? 100 : 130);
+      let calculatedMaxY;
+      if (inputEl) {
+        const rect = inputEl.getBoundingClientRect();
+        calculatedMaxY = Math.max(20, rect.top - height - 15);
+      } else {
+        calculatedMaxY = Math.max(20, window.innerHeight - height - 20);
+      }
+      setMaxAllowedY(calculatedMaxY);
+
+      if (!dragging && !walking) {
+        const targetHomeY = initialY ?? Math.max(20, Math.min(window.innerHeight - (isMobile ? 150 : 220), calculatedMaxY));
+        setPosition(prev => {
+          if (prev.y > calculatedMaxY) {
+            return { ...prev, y: targetHomeY };
+          }
+          return prev;
+        });
+      }
+    };
+
+    updateBounds();
+    window.addEventListener("resize", updateBounds);
+    const interval = setInterval(updateBounds, 250);
+
+    return () => {
+      window.removeEventListener("resize", updateBounds);
+      clearInterval(interval);
+    };
+  }, [dragging, walking, isMobile, initialY]);
+
+  useEffect(() => {
     const handlePointerMove = (event) => {
       if (!dragging) return;
 
       const width =
         robotRef.current?.offsetWidth || 100;
-
-      const height =
-        robotRef.current?.offsetHeight || 130;
 
       setPosition({
         x: clamp(
@@ -73,8 +108,8 @@ export default function ByteMovement({
 
         y: clamp(
           event.clientY - dragOffset.current.y,
-          0,
-          window.innerHeight - height
+          20,
+          maxAllowedY
         ),
       });
     };
@@ -85,8 +120,9 @@ export default function ByteMovement({
 
       walkTimer.current = setInterval(() => {
         setPosition((current) => {
+          const targetY = clamp(HOME_Y, 20, maxAllowedY);
           const dx = HOME_X - current.x;
-          const dy = HOME_Y - current.y;
+          const dy = targetY - current.y;
 
           const distance = Math.sqrt(
             dx * dx + dy * dy
@@ -101,7 +137,7 @@ export default function ByteMovement({
 
             return {
               x: HOME_X,
-              y: HOME_Y,
+              y: targetY,
             };
           }
 
@@ -109,7 +145,7 @@ export default function ByteMovement({
 
           return {
             x: current.x + (dx / distance) * step,
-            y: current.y + (dy / distance) * step,
+            y: clamp(current.y + (dy / distance) * step, 20, maxAllowedY),
           };
         });
       }, 40);
@@ -152,32 +188,31 @@ export default function ByteMovement({
 
   useEffect(() => {
     const handleResize = () => {
-      setPosition((prev) => ({
-        x: clamp(
-          prev.x,
-          0,
-          window.innerWidth - 100
-        ),
+      const mobile = window.innerWidth <= 768;
+      const hX = initialX ?? Math.max(20, window.innerWidth - (mobile ? 95 : 130));
+      
+      const inputEl = document.querySelector(".chat-input-area-wrapper");
+      const height = robotRef.current?.offsetHeight || (mobile ? 100 : 130);
+      const calculatedMaxY = inputEl 
+        ? Math.max(20, inputEl.getBoundingClientRect().top - height - 15) 
+        : Math.max(20, window.innerHeight - height - 20);
 
-        y: clamp(
-          prev.y,
-          0,
-          window.innerHeight - 130
-        ),
-      }));
+      const hY = initialY ?? Math.min(window.innerHeight - (mobile ? 150 : 220), calculatedMaxY);
+
+      setPosition((prev) => {
+        if (dragging) {
+          return {
+            x: clamp(prev.x, 0, window.innerWidth - (mobile ? 70 : 100)),
+            y: clamp(prev.y, 20, calculatedMaxY),
+          };
+        }
+        return { x: hX, y: hY };
+      });
     };
 
-    window.addEventListener(
-      "resize",
-      handleResize
-    );
-
-    return () =>
-      window.removeEventListener(
-        "resize",
-        handleResize
-      );
-  }, []);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [dragging, initialX, initialY]);
 
   // Halt internal walking home if overridePosition is active
   useEffect(() => {
@@ -209,7 +244,7 @@ export default function ByteMovement({
       }}
       transition={
         overridePosition
-          ? { duration: 0 }
+          ? (smoothOverride ? { type: "spring", stiffness: 120, damping: 18 } : { duration: 0 })
           : dragging
           ? {
               type: "spring",
@@ -230,7 +265,7 @@ export default function ByteMovement({
         position: "fixed",
         left: 0,
         top: 0,
-        zIndex: 99999,
+        zIndex: 2000000,
         cursor: dragging ? "grabbing" : "grab",
         userSelect: "none",
         touchAction: "none",

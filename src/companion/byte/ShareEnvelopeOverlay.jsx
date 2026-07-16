@@ -25,6 +25,8 @@ export default function ShareEnvelopeOverlay() {
   const theme = useTheme();
   const isLight = theme.palette.mode === "light";
   
+  const scaleFactor = window.innerWidth < 400 ? 0.82 : 1.0;
+  
   // active controls if the component is mounted at all
   const [active, setActive] = useState(false);
   // idle, holding, flight, landed, opening_flap, sliding_paper, unfolding_paper, fully_opened, closing_content, folding_paper, sliding_paper_in, closing_flap, transforming_airplane
@@ -485,7 +487,7 @@ export default function ShareEnvelopeOverlay() {
                 ? {
                     x: envelopePos.x,
                     y: envelopePos.y,
-                    scale: envelopePos.scale,
+                    scale: envelopePos.scale * scaleFactor,
                     opacity: envelopePos.opacity,
                     rotate: 0,
                   }
@@ -493,7 +495,7 @@ export default function ShareEnvelopeOverlay() {
                 ? {
                     x: flightConfig?.x || 0,
                     y: flightConfig?.y || 0,
-                    scale: flightConfig?.scale || 1.0,
+                    scale: (flightConfig?.scale || 1.0) * scaleFactor,
                     opacity: 1,
                     rotate: flightConfig?.rotate || 0,
                   }
@@ -501,7 +503,7 @@ export default function ShareEnvelopeOverlay() {
                     // Landed, opening, & transforming phases
                     x: centerCoords.x,
                     y: centerCoords.y,
-                    scale: 1.0,
+                    scale: scaleFactor,
                     opacity: 1,
                     rotate: 0,
                   }

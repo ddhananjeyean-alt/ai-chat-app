@@ -166,9 +166,26 @@ export default function ProfileDialog({
             <Typography variant="h6" fontWeight={600}>
               {displayName}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               {email}
             </Typography>
+            {/* Identity connection pill */}
+            <Box
+              sx={{
+                px: 1.5,
+                py: 0.5,
+                borderRadius: "20px",
+                bgcolor: theme.palette.mode === "dark" ? "rgba(6, 182, 212, 0.15)" : "rgba(6, 182, 212, 0.08)",
+                color: theme.palette.mode === "dark" ? "#22d3ee" : "#0891b2",
+                fontSize: "11px",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                border: "1px solid rgba(6, 182, 212, 0.25)",
+              }}
+            >
+              {currentUser?.provider === "google" ? "Google" : "Microsoft"} Identity Account
+            </Box>
           </Box>
 
           <Divider sx={{ my: 2 }} />

@@ -6,6 +6,7 @@ import MessageBubble from "./MessageBubble";
 import WelcomeScreen from "./WelcomeScreen";
 import { useByte, BYTE_STATES } from "../../context/ByteContext";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import { SearchEvents } from "../../companion/byte/SearchEvents";
 
 export default function ChatWindow({
   darkMode,
@@ -22,6 +23,9 @@ export default function ChatWindow({
   searchQuery,
   conversations = [],
   onSelectChat,
+  editingMessageIndex,
+  onImageLoad,
+  onImageError,
 }) {
   const theme = useTheme();
   const isLight = theme.palette.mode === "light";
@@ -29,21 +33,122 @@ export default function ChatWindow({
   const bottomRef = useRef(null);
 
   const [localSearchQuery, setLocalSearchQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [showActualBar, setShowActualBar] = useState(false);
+  const [isIntroPlaying, setIsIntroPlaying] = useState(false);
+  const [showSweep, setShowSweep] = useState(false);
+  const searchBarContainerRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const { hasPlayedSearchDelivery, setHasPlayedSearchDelivery } = useByte();
 
   useEffect(() => {
     if (activeChatId === "search") {
+      console.log("[SEARCH] Step 2 OK");
       setLocalSearchQuery("");
+      const introPlayed = hasPlayedSearchDelivery;
+      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!introPlayed && !prefersReduced) {
+        console.log("[SEARCH] Step 3 OK");
+        console.log("[SEARCH] Step 4 OK");
+        console.log("[SEARCH] Step 5 OK");
+        window.dispatchEvent(new CustomEvent("SEARCH_PAGE_OPENED"));
+        console.log("[Byte] Search page opened");
+        console.log("[Byte] Waiting 2 seconds");
+        setIsIntroPlaying(true);
+        setShowActualBar(false);
+      } else {
+        setIsIntroPlaying(false);
+        setShowActualBar(true);
+      }
+    } else {
+      setIsIntroPlaying(false);
+      setShowActualBar(false);
     }
-  }, [activeChatId]);
+  }, [activeChatId, hasPlayedSearchDelivery]);
+
+  useEffect(() => {
+    if (isIntroPlaying) {
+      const triggerIntro = () => {
+        const placeholderEl = document.getElementById("search-bar-placeholder");
+        if (!placeholderEl) {
+          console.warn("[Byte] Search bar placeholder not found in DOM");
+          return;
+        }
+        console.log("[Byte] Starting Search Delivery");
+        const rect = placeholderEl.getBoundingClientRect();
+        SearchEvents.publish(SearchEvents.TRIGGER, {
+          coords: {
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+            height: rect.height,
+          }
+        });
+      };
+      const timer = setTimeout(triggerIntro, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isIntroPlaying]);
+
+  useEffect(() => {
+    const unsubPlace = SearchEvents.subscribe(SearchEvents.PLACE_BAR, () => {
+      console.log("[Byte] Search input activated");
+      setShowActualBar(true);
+      setShowSweep(true);
+      setTimeout(() => {
+        const inputEl = document.getElementById("search-input-field") || 
+                        (inputRef.current && (inputRef.current.querySelector("input") || inputRef.current));
+        if (inputEl) {
+          inputEl.focus();
+        }
+      }, 50);
+    });
+
+    const unsubComplete = SearchEvents.subscribe(SearchEvents.COMPLETE, () => {
+      setIsIntroPlaying(false);
+      setHasPlayedSearchDelivery(true);
+    });
+
+    return () => {
+      unsubPlace();
+      unsubComplete();
+    };
+  }, [setHasPlayedSearchDelivery]);
+
+  useEffect(() => {
+    if (activeChatId === "search") {
+      SearchEvents.publish(SearchEvents.TYPING, { isTyping: localSearchQuery.length > 0 });
+    }
+  }, [localSearchQuery, activeChatId]);
 
   const typing = Boolean(isTyping);
+  const isNearBottomRef = useRef(true);
+  const prevMessagesLengthRef = useRef(messages.length);
+
+  const handleScroll = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const threshold = 150;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
+    isNearBottomRef.current = isAtBottom;
+  };
 
   useEffect(() => {
     if (!scrollContainerRef.current) return;
-    scrollContainerRef.current.scrollTo({
-      top: scrollContainerRef.current.scrollHeight,
-      behavior: "auto",
-    });
+    
+    const wasNewMessageSent = messages.length > prevMessagesLengthRef.current;
+    prevMessagesLengthRef.current = messages.length;
+
+    if (isNearBottomRef.current || wasNewMessageSent) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: "auto",
+      });
+      if (wasNewMessageSent) {
+        isNearBottomRef.current = true;
+      }
+    }
   }, [messages, typing]);
 
   const hasMessages = messages && messages.length > 0;
@@ -84,7 +189,7 @@ export default function ChatWindow({
             fontSize: 28,
             fontWeight: 800,
             color: darkMode ? "#ffffff" : "#1F2937",
-            mb: 2,
+            mb: 3,
             fontFamily: "Inter, sans-serif",
             letterSpacing: "-0.02em",
           }}
@@ -93,73 +198,139 @@ export default function ChatWindow({
         </Typography>
 
         <Box
+          ref={searchBarContainerRef}
+          id="search-bar-placeholder"
           sx={{
-            width: "100%",
-            maxWidth: 680,
+            width: "min(900px, 90%)",
             height: 56,
+            mb: 5,
+            position: "relative",
             display: "flex",
+            justifyContent: "center",
             alignItems: "center",
-            borderRadius: "99px",
-            background: darkMode ? "rgba(20, 24, 34, 0.45)" : "rgba(255, 255, 255, 0.88)",
-            border: darkMode ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid rgba(220, 228, 240, 0.9)",
-            boxShadow: darkMode
-              ? "0 12px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(0, 180, 255, 0.08)"
-              : "0 8px 30px rgba(31, 41, 55, 0.05)",
-            backdropFilter: "blur(24px)",
-            WebkitBackdropFilter: "blur(24px)",
-            px: 2.5,
-            mb: 4,
-            boxSizing: "border-box",
           }}
         >
-          <SearchOutlinedIcon
-            sx={{
-              fontSize: 20,
-              color: darkMode ? "#79f8ff" : "#2563EB",
-              mr: 2,
-              filter: darkMode ? "drop-shadow(0 0 8px rgba(121, 248, 255, 0.4))" : "none"
-            }}
-          />
-          <InputBase
-            placeholder="Search conversations..."
-            value={localSearchQuery}
-            onChange={(e) => setLocalSearchQuery(e.target.value)}
-            sx={{
-              flex: 1,
-              fontSize: 15,
-              color: darkMode ? "#ffffff" : "#1F2937",
-              fontFamily: "Inter, sans-serif",
-              "& .MuiInputBase-input": {
-                padding: 0,
-                "&::placeholder": {
-                  color: darkMode ? "rgba(255, 255, 255, 0.5)" : "#8A94A6",
-                  opacity: 1,
-                },
-              },
-            }}
-          />
-        </Box>
+          {showActualBar && (
+            <motion.div
+              initial={isIntroPlaying ? { opacity: 0, scale: 0.9, y: -20 } : { opacity: 1, scale: 1, y: 0 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={isIntroPlaying ? {
+                opacity: { duration: 0.35 },
+                scale: { duration: 0.45, ease: "easeOut" },
+                y: { type: "spring", stiffness: 180, damping: 12 }
+              } : { duration: 0 }}
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                position: "relative",
+              }}
+            >
+              <Box
+                component={motion.div}
+                animate={{
+                  borderColor: searchFocused 
+                    ? (darkMode ? "#79f8ff" : "#2563EB") 
+                    : (darkMode ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)"),
+                  boxShadow: searchFocused
+                    ? (darkMode ? "0 0 20px rgba(121, 248, 255, 0.3)" : "0 0 16px rgba(37, 99, 235, 0.3)")
+                    : (darkMode
+                      ? "0 12px 40px rgba(0, 0, 0, 0.3), 0 0 30px rgba(0, 180, 255, 0.06)"
+                      : "0 8px 30px rgba(31, 41, 55, 0.04)"),
+                }}
+                transition={{ duration: 0.2 }}
+                sx={{
+                  width: "100%",
+                  height: 56,
+                  display: "flex",
+                  alignItems: "center",
+                  borderRadius: "18px",
+                  background: darkMode ? "rgba(20, 24, 34, 0.35)" : "rgba(255, 255, 255, 0.35)",
+                  border: "1px solid",
+                  borderColor: darkMode ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  px: 2.5,
+                  boxSizing: "border-box",
+                  position: "relative",
+                }}
+              >
+                <SearchOutlinedIcon
+                  sx={{
+                    fontSize: 24,
+                    color: searchFocused
+                      ? (darkMode ? "#79f8ff" : "#2563EB")
+                      : (darkMode ? "rgba(255, 255, 255, 0.45)" : "#8A94A6"),
+                    mr: 2,
+                    transition: "color 0.2s ease",
+                  }}
+                />
+                <InputBase
+                  ref={inputRef}
+                  id="search-input-field"
+                  placeholder="Search conversations..."
+                  value={localSearchQuery}
+                  onChange={(e) => setLocalSearchQuery(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setSearchFocused(false)}
+                  sx={{
+                    flex: 1,
+                    fontSize: 16,
+                    color: darkMode ? "#ffffff" : "#1F2937",
+                    fontFamily: "Inter, sans-serif",
+                    "& .MuiInputBase-input": {
+                      padding: 0,
+                      "&::placeholder": {
+                        color: darkMode ? "rgba(255, 255, 255, 0.5)" : "#8A94A6",
+                        opacity: 1,
+                      },
+                    },
+                  }}
+                />
 
-        <Typography
-          sx={{
-            alignSelf: "flex-start",
-            width: "100%",
-            maxWidth: 680,
-            fontSize: 18,
-            fontWeight: 700,
-            color: darkMode ? "#ffffff" : "#1F2937",
-            mb: 2,
-            fontFamily: "Inter, sans-serif",
-          }}
-        >
-          Recent Conversations
-        </Typography>
+                {showSweep && (
+                  <Box
+                    component={motion.div}
+                    initial={{ left: "-100%" }}
+                    animate={{ left: "200%" }}
+                    transition={{ duration: 1.2, ease: "easeInOut" }}
+                    onAnimationComplete={() => setShowSweep(false)}
+                    sx={{
+                      position: "absolute",
+                      top: 0,
+                      width: "50%",
+                      height: "100%",
+                      background: `linear-gradient(90deg, transparent, ${darkMode ? "rgba(121, 248, 255, 0.25)" : "rgba(37, 99, 235, 0.15)"}, transparent)`,
+                      transform: "skewX(-25deg)",
+                      pointerEvents: "none",
+                      zIndex: 2,
+                    }}
+                  />
+                )}
+              </Box>
+            </motion.div>
+          )}
+        </Box>
+ 
+         <Typography
+           sx={{
+             alignSelf: "flex-start",
+             width: "min(900px, 90%)",
+             fontSize: 18,
+             fontWeight: 700,
+             color: darkMode ? "#ffffff" : "#1F2937",
+             mb: 2,
+             fontFamily: "Inter, sans-serif",
+             mx: "auto"
+           }}
+         >
+           Recent Conversations
+         </Typography>
 
         {filtered.length === 0 ? (
           <Box
             sx={{
-              width: "100%",
-              maxWidth: 680,
+              width: "min(900px, 90%)",
               borderRadius: "22px",
               background: darkMode ? "rgba(20, 24, 34, 0.45)" : "rgba(255, 255, 255, 0.82)",
               border: darkMode ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid rgba(220, 228, 240, 0.8)",
@@ -192,13 +363,14 @@ export default function ChatWindow({
             </Typography>
           </Box>
         ) : (
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 3, width: "100%", maxWidth: 680 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 3, width: "min(900px, 90%)" }}>
             {filtered.map((chat, idx) => (
               <SearchCard
                 key={chat.id}
                 chat={chat}
                 index={idx}
                 onSelectChat={onSelectChat}
+                searchQuery={localSearchQuery}
               />
             ))}
           </Box>
@@ -259,6 +431,7 @@ export default function ChatWindow({
             component={motion.div}
             key="active-chat-view"
             ref={scrollContainerRef}
+            onScroll={handleScroll}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -271,7 +444,7 @@ export default function ChatWindow({
               justifyContent: "flex-start",
               pl: { xs: 2, sm: 3, md: "24px" },
               pr: { xs: 2, sm: 3, md: "24px" },
-              pb: "180px",
+              pb: { xs: "120px", sm: "140px", md: "180px" },
               zIndex: 1,
               position: "relative",
 
@@ -305,7 +478,7 @@ export default function ChatWindow({
                 maxWidth: "100%",
                 px: 0,
                 pt: 6, // spacing below top fade margin
-                pb: "180px",
+                pb: { xs: "120px", sm: "140px", md: "180px" },
                 display: "flex",
                 flexDirection: "column",
               }}
@@ -340,6 +513,9 @@ export default function ChatWindow({
                         onRegenerate={handleRegenerate}
                         onEdit={handleEdit}
                         onImageClick={handleImageClick}
+                        isEditingThis={editingMessageIndex === index}
+                        onImageLoad={onImageLoad}
+                        onImageError={onImageError}
                       />
                     </motion.div>
                   );
@@ -552,7 +728,71 @@ function PremiumThinkingAnimation({ isLight }) {
   );
 }
 
-function SearchCard({ chat, index, onSelectChat }) {
+const escapeRegExp = (string) => {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+};
+
+const highlightMatches = (text, search, darkMode) => {
+  if (!text) return "";
+  if (!search || !search.trim()) return text;
+  
+  const parts = text.split(new RegExp(`(${escapeRegExp(search)})`, "gi"));
+  const highlightColor = darkMode ? "#79f8ff" : "#2563EB";
+  const highlightBg = darkMode ? "rgba(121, 248, 255, 0.15)" : "rgba(37, 99, 235, 0.1)";
+
+  return parts.map((part, index) =>
+    part.toLowerCase() === search.toLowerCase() ? (
+      <Box
+        component="mark"
+        key={index}
+        sx={{
+          background: highlightBg,
+          color: highlightColor,
+          fontWeight: 700,
+          px: 0.25,
+          borderRadius: "4px",
+          fontStyle: "normal"
+        }}
+      >
+        {part}
+      </Box>
+    ) : (
+      part
+    )
+  );
+};
+
+const getRelativeTimestamp = (timestamp) => {
+  if (!timestamp) return "";
+  try {
+    const date = typeof timestamp.toDate === "function" ? timestamp.toDate() : new Date(timestamp);
+    if (isNaN(date.getTime())) return "";
+
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      if (now.getDate() === date.getDate()) {
+        return "Today";
+      }
+      return "Yesterday";
+    } else if (diffDays === 1) {
+      return "Yesterday";
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric"
+      });
+    }
+  } catch (e) {
+    return "";
+  }
+};
+
+function SearchCard({ chat, index, onSelectChat, searchQuery }) {
   const theme = useTheme();
   const darkMode = theme.palette.mode === "dark";
   const [coords, setCoords] = useState({ x: 0, y: 0 });
@@ -568,21 +808,6 @@ function SearchCard({ chat, index, onSelectChat }) {
 
   const lastMsg = chat.messages && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1].text : "";
   const preview = lastMsg || "No messages";
-  const truncatedPreview = preview.length > 120 ? preview.substring(0, 120) + "..." : preview;
-
-  const formatDate = (timestamp) => {
-    if (!timestamp) return "";
-    try {
-      const date = typeof timestamp.toDate === "function" ? timestamp.toDate() : new Date(timestamp);
-      if (isNaN(date.getTime())) return "";
-      return date.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric"
-      });
-    } catch (e) {
-      return "";
-    }
-  };
 
   return (
     <motion.div
@@ -590,14 +815,15 @@ function SearchCard({ chat, index, onSelectChat }) {
       initial="hidden"
       animate="visible"
       variants={{
-        hidden: { opacity: 0, y: 15 },
+        hidden: { opacity: 0, y: 30, scale: 0.97 },
         visible: (i) => ({
           opacity: 1,
           y: 0,
+          scale: 1,
           transition: {
-            delay: i * 0.04,
-            duration: 0.35,
-            ease: [0.22, 1, 0.36, 1]
+            delay: i * 0.05,
+            duration: 0.5,
+            ease: [0.16, 1, 0.3, 1]
           }
         })
       }}
@@ -632,7 +858,7 @@ function SearchCard({ chat, index, onSelectChat }) {
           transition: "transform 300ms cubic-bezier(.22,1,.36,1), box-shadow 300ms cubic-bezier(.22,1,.36,1)",
           display: "flex",
           flexDirection: "column",
-          gap: 1.5,
+          gap: 2,
           boxSizing: "border-box",
           "&:hover": {
             transform: "translateY(-4px) scale(1.005)",
@@ -641,13 +867,13 @@ function SearchCard({ chat, index, onSelectChat }) {
       >
         <Typography
           sx={{
-            fontSize: "18px",
+            fontSize: "20px",
             fontWeight: 700,
             color: darkMode ? "#ffffff" : "#1F2937",
             fontFamily: "Inter, sans-serif"
           }}
         >
-          {chat.title || "Untitled Conversation"}
+          {highlightMatches(chat.title || "Untitled Conversation", searchQuery, darkMode)}
         </Typography>
 
         <Typography
@@ -657,13 +883,13 @@ function SearchCard({ chat, index, onSelectChat }) {
             lineHeight: 1.5,
             display: "-webkit-box",
             WebkitBoxOrient: "vertical",
-            WebkitLineClamp: 3,
+            WebkitLineClamp: 1,
             overflow: "hidden",
             textOverflow: "ellipsis",
             fontFamily: "Inter, sans-serif"
           }}
         >
-          {truncatedPreview}
+          {highlightMatches(preview, searchQuery, darkMode)}
         </Typography>
 
         <Box sx={{ alignSelf: "flex-end", mt: 0.5 }}>
@@ -674,7 +900,7 @@ function SearchCard({ chat, index, onSelectChat }) {
               fontFamily: "Inter, sans-serif"
             }}
           >
-            {formatDate(chat.updatedAt || chat.createdAt) || "Jul 14"} • AI Description
+            {getRelativeTimestamp(chat.updatedAt || chat.createdAt) || "Today"} • AI Description
           </Typography>
         </Box>
       </Box>

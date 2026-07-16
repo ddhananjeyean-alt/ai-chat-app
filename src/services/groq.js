@@ -1,177 +1,51 @@
-import axios from "axios";
+import { aiEngine } from "../ai/AIEngine";
 
-const API_KEY = import.meta.env.VITE_GROQ_API_KEY;
-console.log("Groq API Key:", API_KEY);
-
-export const getAIResponse = async (messages) => {
+export const getAIResponse = async (messages, summary, signal, documentName, documentText) => {
   try {
-    const recentMessages = messages.slice(-15);
+    if (!messages || messages.length === 0) return "";
+    
+    // The history mapping is handled internally by AIEngine
+    const history = messages.slice(0, -1);
+    const lastMessage = messages[messages.length - 1];
+    const prompt = lastMessage ? lastMessage.text : "";
 
-    const formattedMessages = [
-      {
-        role: "system",
-        content: `
-You are an expert AI assistant.
-
-==============================
-LANGUAGE RULES
-==============================
-
-- Detect the user's language automatically.
-- Always reply in the SAME language as the user's question.
-
-Examples:
-- English → English
-- Tamil → Tamil
-- Hindi → Hindi
-- Telugu → Telugu
-- Malayalam → Malayalam
-- Kannada → Kannada
-
-Never change the user's language.
-
-==============================
-PROGRAMMING RULES
-==============================
-
-Whenever you write code:
-
-1. ALWAYS wrap the code inside Markdown triple backticks.
-2. ALWAYS specify the language.
-
-Example:
-
-\`\`\`python
-print("Hello World")
-\`\`\`
-
-Example:
-
-\`\`\`javascript
-console.log("Hello");
-\`\`\`
-
-Example:
-
-\`\`\`html
-<!DOCTYPE html>
-<html>
-<head>
-<title>Example</title>
-</head>
-<body>
-
-</body>
-</html>
-\`\`\`
-
-NEVER output raw code.
-
-==============================
-MARKDOWN RULES
-==============================
-
-Always use proper Markdown formatting.
-
-Use:
-
-# Heading
-
-## Sub Heading
-
-- Bullet Points
-
-**Bold**
-
-Tables when needed.
-
-Keep paragraphs short.
-
-==============================
-ANSWER FORMAT
-==============================
-
-## Answer
-
-Give the direct answer.
-
-## Explanation
-
-Explain why.
-
-## Key Points
-
-- Important point 1
-- Important point 2
-- Important point 3
-
-==============================
-CODING QUESTIONS
-==============================
-
-For programming questions ALWAYS answer like this:
-
-## Answer
-
-Short introduction.
-
-\`\`\`language
-Complete working code here
-\`\`\`
-
-## Explanation
-
-Explain the code.
-
-## Key Points
-
-- Point 1
-- Point 2
-- Point 3
-
-Never output code outside Markdown code fences.
-
-Always return clean professional Markdown.
-`,
-      },
-
-      ...recentMessages.map((msg) => ({
-        role: msg.sender === "user" ? "user" : "assistant",
-        content: msg.text,
-      })),
-    ];
-
-    const response = await axios.post(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        model: "llama-3.1-8b-instant",
-        messages: formattedMessages,
-        temperature: 0.7,
-        max_tokens: 2048,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    console.log(
-      "AI Response:",
-      response.data.choices[0].message.content
-    );
-
-    return response.data.choices[0].message.content;
+    return await aiEngine.generateText(prompt, { history, summary, signal, documentName, documentText });
   } catch (error) {
-    console.error(
-      "Groq Error:",
-      error.response?.data || error
-    );
+    console.error("AI Engine Client Error (getAIResponse):", error);
+    return "⚠️ AI service unavailable. Please check your internet connection and try again.";
+  }
+};
 
-    return (
-      error.response?.data?.error?.message ||
-      "⚠️ AI service unavailable."
-    );
+export const generateConversationTitle = async (prompt, responseText) => {
+  try {
+    const textToSummarize = `User prompt: "${prompt}"\nAssistant response: "${responseText ? responseText.substring(0, 300) : ''}"`;
+    
+    const title = await aiEngine.generateText(textToSummarize, {
+      systemPrompt: `You are an expert conversation title generator. Analyze the text and generate a highly concise, natural, human-readable title. 
+Rules:
+- Title must be between 2 and 5 words maximum.
+- Title must be maximum 35 characters long.
+- Title must be in sentence case (meaning capitalize ONLY the first word and proper nouns).
+- Never wrap the title in quotes.
+- Do not use emojis.
+- Do not use trailing punctuation.
+Return ONLY the title text itself. Do not include any formatting or quotes.`,
+    });
+
+    // Basic sanitization similar to api/title.js
+    let cleaned = title.replace(/^["']|["']$/g, "").trim();
+    cleaned = cleaned.replace(/["'“”‘’]/g, "");
+    cleaned = cleaned.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]+$/, "").trim();
+    if (cleaned) {
+      cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+      if (cleaned.length > 35) {
+        cleaned = cleaned.substring(0, 35).trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]+$/, "").trim();
+      }
+    }
+    return cleaned || "New Conversation";
+  } catch (error) {
+    console.error("generateConversationTitle Error:", error);
+    const words = prompt.split(/\s+/).slice(0, 4).join(" ");
+    return words ? words + "..." : "New Conversation";
   }
 };
